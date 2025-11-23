@@ -23,6 +23,7 @@ service: dto --> do  返回vo
 
 
 项目后端执行方式
+
 1、打开mysql
 
 2、下载minio，将用户名和密码分别设为：name  和   password
