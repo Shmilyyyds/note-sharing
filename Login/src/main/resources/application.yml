@@ -82,7 +82,7 @@ mybatis:
     map-underscore-to-camel-case: true
     cache-enabled: false
     default-statement-timeout: 600
-  type-aliases-package: com.project.login.model
+  # type-aliases-package: com.project.login.model
 
 elasticsearch:
   host: localhost
