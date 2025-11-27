@@ -74,6 +74,7 @@ dependencies {
     // ------------------- JSON / HTML -------------------
     implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.20.0'
     implementation 'org.jsoup:jsoup:1.21.2'
+    
 
     // ------------------- DTO Converter -------------------
     implementation 'org.mapstruct:mapstruct:1.6.3'

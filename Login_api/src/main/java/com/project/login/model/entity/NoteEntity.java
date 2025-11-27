@@ -19,10 +19,10 @@ public class NoteEntity {
     @Id
     private Long id; // MySQL note.id
 
-    @Field(type = FieldType.Text)
+    @Field(type = FieldType.Text, analyzer = "ik_max_word", searchAnalyzer = "ik_smart")
     private String title;
 
-    @Field(type = FieldType.Text)
+    @Field(type = FieldType.Text, analyzer = "ik_max_word", searchAnalyzer = "ik_smart")
     private String contentSummary; // 对应 content_summary
 
     @Field(type = FieldType.Keyword)
