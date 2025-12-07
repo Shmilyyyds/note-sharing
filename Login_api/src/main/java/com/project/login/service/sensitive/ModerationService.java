@@ -17,8 +17,11 @@ public class ModerationService {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public void saveResult(SensitiveCheckResult r) {
-        NoteModerationDO d = new NoteModerationDO();
-        if (r.getNoteMeta() != null) d.setNoteId(r.getNoteMeta().getNoteId());
+        Long noteId = r.getNoteMeta() == null ? null : r.getNoteMeta().getNoteId();
+        NoteModerationDO existing = noteId == null ? null : noteModerationMapper.selectLatestPendingByNoteId(noteId);
+
+        NoteModerationDO d = existing == null ? new NoteModerationDO() : existing;
+        if (noteId != null) d.setNoteId(noteId);
         d.setStatus(r.getStatus());
         d.setRiskLevel(r.getRiskLevel());
         d.setScore(r.getScore() == null ? null : r.getScore().intValue());
@@ -32,6 +35,11 @@ public class ModerationService {
         d.setSource("LLM");
         d.setCreatedAt(LocalDateTime.now());
         d.setIsHandled(Boolean.FALSE);
-        noteModerationMapper.insert(d);
+
+        if (existing == null) {
+            noteModerationMapper.insert(d);
+        } else {
+            noteModerationMapper.updateFields(d);
+        }
     }
 }

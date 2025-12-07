@@ -20,7 +20,7 @@ public class NoteModerationConsumer {
     @Resource
     private RabbitTemplate rabbitTemplate;
 
-    @RabbitListener(queues = "note.audit.queue")
+    @RabbitListener(queues = "note.audit.queue", containerFactory = "auditListenerFactory")
     public void onMessage(String payload) {
         long start = System.currentTimeMillis();
         log.info("【敏感词审查】收到队列消息: payload={}", payload);

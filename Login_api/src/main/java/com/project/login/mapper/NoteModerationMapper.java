@@ -35,5 +35,11 @@ public interface NoteModerationMapper {
     @Select("SELECT * FROM note_moderation WHERE id = #{id}")
     @ResultMap("BaseResultMap")
     NoteModerationDO selectById(Long id);
-}
 
+    @Select("SELECT * FROM note_moderation WHERE note_id = #{noteId} AND is_handled = FALSE ORDER BY created_at DESC LIMIT 1")
+    @ResultMap("BaseResultMap")
+    NoteModerationDO selectLatestPendingByNoteId(Long noteId);
+
+    @Update("UPDATE note_moderation SET status = #{status}, risk_level = #{riskLevel}, score = #{score}, categories_json = #{categoriesJson}, findings_json = #{findingsJson}, source = #{source}, created_at = #{createdAt} WHERE id = #{id}")
+    int updateFields(NoteModerationDO record);
+}
