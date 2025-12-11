@@ -249,9 +249,18 @@
                     </div>
                     <div class="comment-content-wrapper">
                       <p class="comment-content">
-                        <span v-if="reply.replyToUsername" class="reply-to">
-                          回复 @{{ reply.replyToUsername }}：
-                        </span>
+                        <!-- 多级回复显示：如果回复的是另一个回复，需要显示完整的回复链 -->
+                        <template v-if="reply.replyToUsername">
+                          <!-- 检查被回复的回复是否也回复了别人 -->
+                          <!-- 如果reply.replyToUsername不等于主评论的username，说明回复的是另一个回复 -->
+                          <!-- 需要在replies中找到被回复的那个回复，看它回复的是谁 -->
+                          <span v-if="reply.replyToUsername !== comment.username && findReplyTarget(reply, comment.replies, comment)" class="reply-to">
+                            回复 @{{ findReplyTarget(reply, comment.replies, comment) }}：回复 @{{ reply.replyToUsername }}：
+                          </span>
+                          <span v-else class="reply-to">
+                            回复 @{{ reply.replyToUsername }}：
+                          </span>
+                        </template>
                         <span>{{ reply.content }}</span>
                       </p>
                     </div>
@@ -831,6 +840,29 @@ const cancelReply = () => {
   replyToRemarkId.value = null
   replyToUsername.value = null
   replyContent.value = ''
+}
+
+// 查找被回复的回复回复的是谁（用于多级回复显示）
+// currentReply: 当前回复
+// replies: 所有回复列表
+// parentComment: 主评论
+const findReplyTarget = (currentReply, replies, parentComment) => {
+  if (!replies || !currentReply || !currentReply.replyToUsername) return null
+  
+  // 如果回复的是主评论，不需要显示多级
+  if (currentReply.replyToUsername === parentComment?.username) {
+    return null
+  }
+  
+  // 找到被回复的那个回复（通过用户名匹配）
+  const targetReply = replies.find(r => r.username === currentReply.replyToUsername)
+  
+  // 如果找到了，返回它回复的是谁
+  if (targetReply && targetReply.replyToUsername) {
+    return targetReply.replyToUsername
+  }
+  
+  return null
 }
 
 // 点赞/取消点赞

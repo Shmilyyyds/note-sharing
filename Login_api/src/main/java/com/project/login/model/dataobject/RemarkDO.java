@@ -40,11 +40,11 @@ public class RemarkDO {
     @Field("parent_id") // 映射为 parent_id
     private String parentId; // 上一级评论（楼中楼）
 
-    @Field("is_receive") // 映射为 is_receive
-    private Boolean isReceive; // 是否是回复
+    @Field("is_reply") // 映射为 is_receive
+    private Boolean isReply; // 是否是回复
 
-    @Field("receive_to_remark_id") // 映射为 receive_to_remark_id
-    private String receiveToRemarkId; // 回复哪条评论
+    @Field("reply_to_remark_id") // 映射为 receive_to_remark_id
+    private String replyToRemarkId; // 回复哪条评论
 
     @Field("reply_to_user_name")
     private String replyToUsername;

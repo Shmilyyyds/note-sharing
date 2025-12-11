@@ -1,7 +1,11 @@
 package com.project.login.service.recommend;
 
+import com.project.login.model.dataobject.QuestionDO;
 import com.project.login.model.vo.NoteSearchVO;
 import com.project.login.model.dto.search.NoteSearchDTO;
+import com.project.login.model.vo.qa.QuestionVO;
+import com.project.login.service.qa.QuestionService;
+import com.project.login.service.search.SearchQAService;
 import com.project.login.service.search.SearchService;
 import org.springframework.stereotype.Service;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -16,12 +20,14 @@ public class UserProfileQueryService {
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
     private final SearchService searchService;
+    private final SearchQAService qaService;
 
     public UserProfileQueryService(StringRedisTemplate redisTemplate, ObjectMapper objectMapper,
-                                   SearchService searchService) {
+                                   SearchService searchService, SearchQAService qaService) {
         this.redisTemplate = redisTemplate;
         this.objectMapper = objectMapper;
         this.searchService = searchService;
+        this.qaService = qaService;
     }
 
     private List<String> getTopKeywords(Long userId, int topN) throws Exception {
@@ -65,4 +71,39 @@ public class UserProfileQueryService {
 
         return merged;
     }
+
+    /**
+     * 根据用户画像关键词推荐问答（QA），并去重
+     */
+    public List<QuestionVO> recommendQuestionsByKeywords(Long userId, int topN) throws Exception {
+        // 获取用户画像中的关键词
+        List<String> keywords = getTopKeywords(userId, topN);
+        if (keywords.isEmpty()) return Collections.emptyList();
+
+        // 存储去重后的问题
+        Map<String, QuestionVO> uniqueQuestions = new LinkedHashMap<>();
+
+        // 遍历每个关键词进行搜索
+        for (String keyword : keywords) {
+            // 直接调用 SearchQAService 来执行关键词搜索
+            List<QuestionVO> results = qaService.searchQuestions(keyword);
+
+            // 对返回的问答进行去重
+            for (QuestionVO vo : results) {
+                uniqueQuestions.putIfAbsent(vo.getQuestionId(), vo);
+            }
+        }
+
+        // 综合排序：只考虑统计数据（例如：回答数、点赞数等）
+        List<QuestionVO> merged = new ArrayList<>(uniqueQuestions.values());
+        merged.sort((a, b) -> {
+            double scoreA = a.getAnswers().size() + a.getLikeCount() + a.getFavoriteCount();
+            double scoreB = b.getAnswers().size() + b.getLikeCount() + b.getFavoriteCount();
+            return Double.compare(scoreB, scoreA);
+        });
+
+        return merged;
+    }
+
+
 }

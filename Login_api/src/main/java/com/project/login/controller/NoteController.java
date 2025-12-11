@@ -1,5 +1,6 @@
 package com.project.login.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.project.login.convert.NoteConvert; // 引入 Convert
 import com.project.login.model.dto.note.*; // 引入 DTOs
@@ -157,4 +158,27 @@ public class NoteController {
         return StandardResponse.success(vo);
     }
 
+    @PostMapping(value = "/publish", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "publish note with file and meta")
+    public StandardResponse<NoteVO> publishNote(
+            @Parameter(description = "Note metadata JSON string", required = true)
+            @RequestPart("meta") String metaJson,
+            @Parameter(description = "File to upload", required = true)
+            @RequestPart("file") MultipartFile file
+    ) throws JsonProcessingException {
+        // 1. 组装请求对象
+        ObjectMapper mapper = new ObjectMapper();
+        NoteUpdateMeta meta = mapper.readValue(metaJson, NoteUpdateMeta.class);
+        NotePublishRequest rq = new NotePublishRequest();
+        rq.setMeta(meta);
+        rq.setFile(file);
+
+        NotePublishDTO dto = convert.toPublishDTO(rq);
+
+        // 调用 Service 层发布笔记
+        NoteVO vo = noteService.publishNote(dto);
+
+        // 返回成功响应
+        return StandardResponse.success(vo);
+    }
 }

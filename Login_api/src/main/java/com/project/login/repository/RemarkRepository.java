@@ -11,11 +11,11 @@ import java.util.Optional;
 
 @Repository
 public interface RemarkRepository extends MongoRepository<RemarkDO, String> {
-    @Query("{'noteId': ?0, 'isReceive': false}")
-    List<RemarkDO> findRemarksByNoteIdAndIsReceiveFalse(Long noteId);
+    @Query("{'noteId': ?0, 'isReply': false}")
+    List<RemarkDO> findRemarksByNoteIdAndIsReplyFalse(Long noteId);
 
-    @Query("{'parentId': ?0, 'isReceive': true}")
-    List<RemarkDO> findRemarksByParentIdAndIsReceiveTrue(String parentId);
+    @Query("{'parentId': ?0, 'isReply': true}")
+    List<RemarkDO> findRemarksByParentIdAndIsReplyTrue(String parentId);
     List<RemarkDO> findByUserId(Long userId);
 
 

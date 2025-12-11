@@ -25,6 +25,7 @@ public interface NoteConvert {
     NoteFileUrlDTO toFileUrlDTO(NoteFileUrlRequest request);
     ImageUrlDTO toImageUrlDTO(ImageUrlRequest request);
     NoteRenameDTO toRenameDTO(NoteRenameRequest request);
+    NotePublishDTO toPublishDTO(NotePublishRequest request);
 
 
     // --- 2. DO/Entity -> VO 转换 (用于 Service 到 Controller 响应) -----------------

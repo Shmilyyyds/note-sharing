@@ -2,6 +2,7 @@ package com.project.login.controller;
 
 import com.project.login.model.response.StandardResponse;
 import com.project.login.model.vo.NoteSearchVO;
+import com.project.login.model.vo.qa.QuestionVO;
 import com.project.login.service.recommend.UserProfileQueryService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,6 +26,17 @@ public class RecommendController {
 
         // 成功返回推荐列表
         return StandardResponse.success(recommendedNotes);
+
+    }
+
+    @GetMapping("/QAs")
+    public StandardResponse<List<QuestionVO>> recommendQAs(
+            @RequestParam("userId") Long userId,
+            @RequestParam(value = "topN", defaultValue = "10") int topN) throws Exception {
+        List<QuestionVO> recommendedQAs = userProfileQueryService.recommendQuestionsByKeywords(userId, topN);
+
+        // 成功返回推荐列表
+        return StandardResponse.success(recommendedQAs);
 
     }
 }

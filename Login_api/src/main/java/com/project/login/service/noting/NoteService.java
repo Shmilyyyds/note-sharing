@@ -83,16 +83,6 @@ public class NoteService {
                 .build();
         noteStatsMapper.insert(stats);
 
-        // --- 发布异步更新 ES 事件 ---
-        EsNoteEvent event = new EsNoteEvent();
-        event.setNoteId(note.getId());
-        event.setAction(NoteActionType.CREATE);
-
-        event.setTitle(note.getTitle());
-        event.setContentSummary(contentSummary);
-
-        eventPublisher.sendEsNoteEvent(event);
-
         return convert.toVO(note);
     }
 
@@ -120,16 +110,6 @@ public class NoteService {
             stats.setUpdatedAt(LocalDateTime.now());
             noteStatsMapper.updateOptimistic(stats);
         }
-
-        // --- 发布异步更新 ES 事件 ---
-        EsNoteEvent event = new EsNoteEvent();
-        event.setNoteId(existing.getId());
-        event.setAction(NoteActionType.UPDATE);
-
-        event.setTitle(existing.getTitle());
-        event.setContentSummary(contentSummary);
-
-        eventPublisher.sendEsNoteEvent(event);
 
         return convert.toVO(existing);
     }
@@ -222,14 +202,6 @@ public class NoteService {
                 .build();
         noteStatsMapper.insert(stats);
 
-        // --- 发布异步更新 ES 事件 ---
-        EsNoteEvent event = new EsNoteEvent();
-        event.setNoteId(note.getId());
-        event.setAction(NoteActionType.CREATE);
-        event.setTitle(note.getTitle());
-        event.setContentSummary(contentSummary);
-        eventPublisher.sendEsNoteEvent(event);
-
         return convert.toVO(note);
     }
 
@@ -282,12 +254,44 @@ public class NoteService {
             noteStatsMapper.updateOptimistic(stats);
         }
 
-        EsNoteEvent event = new EsNoteEvent();
-        event.setNoteId(note.getId());
-        event.setAction(NoteActionType.UPDATE);
-        event.setTitle(note.getTitle());
-        eventPublisher.sendEsNoteEvent(event);
-
         return convert.toVO(note);
     }
+
+    @Transactional
+    public NoteVO publishNote(NotePublishDTO dto) {
+        // 查找笔记
+        NoteDO existing = noteMapper.selectById(dto.getMeta().getId());
+        if (existing == null) throw new RuntimeException("笔记不存在");
+
+        // 上传文件并获取文件名和URL
+        MultipartFile file = dto.getFile();
+        String contentSummary = contentSummaryService.extractContentSummary(file);
+        String name = minioservice.uploadFile(file);
+
+        existing.setTitle(dto.getMeta().getTitle());
+        existing.setFileType(dto.getMeta().getFileType());
+        existing.setFilename(name);
+        existing.setUpdatedAt(LocalDateTime.now());
+
+        noteMapper.update(existing);
+
+        NoteStatsDO stats = noteStatsMapper.getById(existing.getId());
+        if (stats != null) {
+            stats.setUpdatedAt(LocalDateTime.now());
+            noteStatsMapper.updateOptimistic(stats);
+        }
+
+        // --- 发布异步更新 ES 事件 ---
+        EsNoteEvent event = new EsNoteEvent();
+        event.setNoteId(existing.getId());
+        event.setAction(NoteActionType.UPDATE);
+
+        event.setTitle(existing.getTitle());
+        event.setContentSummary(contentSummary);
+
+        eventPublisher.sendEsNoteEvent(event);
+
+        return convert.toVO(existing);
+    }
+
 }

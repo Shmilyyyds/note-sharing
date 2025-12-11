@@ -17,6 +17,8 @@ public class RemarkVO {
     /** 评论所属的笔记/动态 */
     private Long noteId;
 
+    private Long userId;
+
     /** 评论用户 */
     private String username;
 
@@ -36,7 +38,7 @@ public class RemarkVO {
     private Long likeCount;
 
     /** 是否是回复 **/
-    private Boolean isReceive;
+    private Boolean isReply;
 
     /** 子评论（仅一层） */
     private List<RemarkVO> replies;

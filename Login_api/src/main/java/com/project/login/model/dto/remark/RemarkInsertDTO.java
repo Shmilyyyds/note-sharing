@@ -25,7 +25,7 @@ public class RemarkInsertDTO {
 
     private String parentId; // 父评论（楼中楼）
 
-    private Boolean isReceive;
+    private Boolean isReply;
 
-    private String receiveToRemarkId;
+    private String replyToRemarkId;
 }
