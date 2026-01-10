@@ -415,6 +415,15 @@
         </button>
       </aside>
     </div>
+
+    <!-- 消息提示组件 -->
+    <MessageToast
+      v-if="showToast"
+      :message="toastMessage"
+      :type="toastType"
+      :duration="toastDuration"
+      @close="hideMessage"
+    />
   </div>
 </template>
 
@@ -427,10 +436,15 @@ import { useUserStore } from '@/stores/user'
 import { formatTime } from '@/utils/time'
 import VuePdfEmbed from 'vue-pdf-embed'
 import MarkdownIt from 'markdown-it'
+import MessageToast from '@/components/MessageToast.vue'
+import { useMessage } from '@/utils/message'
 
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
+
+// 消息提示
+const { showToast, toastMessage, toastType, toastDuration, showSuccess, showError, hideMessage } = useMessage()
 
 const props = defineProps({
   noteId: {
@@ -870,7 +884,7 @@ const handleSubmitComment = async () => {
     }
   } catch (err) {
     console.error('发表评论失败:', err)
-    alert('发表评论失败，请稍后重试')
+    showError('发表评论失败，请稍后重试')
   } finally {
     commentSubmitting.value = false
   }
@@ -945,7 +959,7 @@ const handleSubmitReply = async (parentComment, targetReply = null) => {
     }
   } catch (err) {
     console.error('回复评论失败:', err)
-    alert('回复失败，请稍后重试')
+    showError('回复失败，请稍后重试')
   } finally {
     commentSubmitting.value = false
   }
@@ -1025,7 +1039,7 @@ const handleToggleLike = async (comment) => {
     }
   } catch (err) {
     console.error('点赞操作失败:', err)
-    alert('操作失败，请稍后重试')
+    showError('操作失败，请稍后重试')
   } finally {
     commentActionLoading.value[comment._id] = false
   }
@@ -1079,7 +1093,7 @@ const handleDeleteComment = async (comment) => {
     }
   } catch (err) {
     console.error('删除评论失败:', err)
-    alert('删除失败，请稍后重试')
+    showError('删除失败，请稍后重试')
   } finally {
     commentActionLoading.value[comment._id] = false
   }

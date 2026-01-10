@@ -242,6 +242,15 @@
         </div>
       </div>
     </div>
+
+    <!-- 消息提示组件 -->
+    <MessageToast
+      v-if="showToast"
+      :message="toastMessage"
+      :type="toastType"
+      :duration="toastDuration"
+      @close="hideMessage"
+    />
   </div>
 </template>
 
@@ -265,10 +274,15 @@ import {
   likeReply
 } from '@/api/qa'
 import { formatTime } from '@/utils/time'
+import MessageToast from '@/components/MessageToast.vue'
+import { useMessage } from '@/utils/message'
 
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
+
+// 消息提示
+const { showToast, toastMessage, toastType, toastDuration, showSuccess, showError, hideMessage } = useMessage()
 
 const props = defineProps({
   questionId: {
@@ -394,13 +408,13 @@ const goBack = () => {
 const handleCreateAnswer = async () => {
   const userId = userStore.userInfo?.id
   if (!userId) {
-    window.alert('请先登录后再进行此操作')
+    showError('请先登录后再进行此操作')
     return
   }
   
   const content = answerInput.value.trim()
   if (!content) {
-    window.alert('回答内容不能为空')
+    showError('回答内容不能为空')
     return
   }
   
@@ -416,7 +430,7 @@ const handleCreateAnswer = async () => {
     await fetchQuestionDetail()
   } catch (err) {
     console.error('创建回答失败', err)
-    window.alert('创建回答失败')
+    showError('创建回答失败')
   }
 }
 
@@ -424,7 +438,7 @@ const handleCreateAnswer = async () => {
 const handleLikeQuestion = async () => {
   const userId = userStore.userInfo?.id
   if (!userId) {
-    window.alert('请先登录后再进行此操作')
+    showError('请先登录后再进行此操作')
     return
   }
   
@@ -433,7 +447,7 @@ const handleLikeQuestion = async () => {
     await fetchQuestionDetail()
   } catch (err) {
     console.error('点赞问题失败', err)
-    window.alert('点赞失败')
+    showError('点赞失败')
   }
 }
 
@@ -441,7 +455,7 @@ const handleLikeQuestion = async () => {
 const handleFavoriteQuestion = async () => {
   const userId = userStore.userInfo?.id
   if (!userId) {
-    window.alert('请先登录后再进行此操作')
+    showError('请先登录后再进行此操作')
     return
   }
   
@@ -450,7 +464,7 @@ const handleFavoriteQuestion = async () => {
     await fetchQuestionDetail()
   } catch (err) {
     console.error('收藏问题失败', err)
-    window.alert('收藏失败')
+    showError('收藏失败')
   }
 }
 
@@ -458,7 +472,7 @@ const handleFavoriteQuestion = async () => {
 const handleLikeAnswer = async (answer) => {
   const userId = userStore.userInfo?.id
   if (!userId) {
-    window.alert('请先登录后再进行此操作')
+    showError('请先登录后再进行此操作')
     return
   }
   
@@ -467,7 +481,7 @@ const handleLikeAnswer = async (answer) => {
     await fetchQuestionDetail()
   } catch (err) {
     console.error('点赞回答失败', err)
-    window.alert('点赞失败')
+    showError('点赞失败')
   }
 }
 
@@ -494,13 +508,13 @@ const cancelComment = (answerId) => {
 const handleCreateComment = async (answer) => {
   const userId = userStore.userInfo?.id
   if (!userId) {
-    window.alert('请先登录后再进行此操作')
+    showError('请先登录后再进行此操作')
     return
   }
   
   const content = commentInputs.value[answer.answerId]?.trim()
   if (!content) {
-    window.alert('评论内容不能为空')
+    showError('评论内容不能为空')
     return
   }
   
@@ -518,7 +532,7 @@ const handleCreateComment = async (answer) => {
     await fetchQuestionDetail()
   } catch (err) {
     console.error('创建评论失败', err)
-    window.alert('创建评论失败')
+    showError('创建评论失败')
   }
 }
 
@@ -526,7 +540,7 @@ const handleCreateComment = async (answer) => {
 const handleLikeComment = async (answer, comment) => {
   const userId = userStore.userInfo?.id
   if (!userId) {
-    window.alert('请先登录后再进行此操作')
+    showError('请先登录后再进行此操作')
     return
   }
   
@@ -535,7 +549,7 @@ const handleLikeComment = async (answer, comment) => {
     await fetchQuestionDetail()
   } catch (err) {
     console.error('点赞评论失败', err)
-    window.alert('点赞失败')
+    showError('点赞失败')
   }
 }
 
@@ -566,14 +580,14 @@ const cancelReply = (answerId, commentId) => {
 const handleCreateReply = async (answer, comment) => {
   const userId = userStore.userInfo?.id
   if (!userId) {
-    window.alert('请先登录后再进行此操作')
+    showError('请先登录后再进行此操作')
     return
   }
   
   const key = `${answer.answerId}_${comment.commentId}`
   const content = replyInputs.value[key]?.trim()
   if (!content) {
-    window.alert('回复内容不能为空')
+    showError('回复内容不能为空')
     return
   }
   
@@ -593,7 +607,7 @@ const handleCreateReply = async (answer, comment) => {
     await fetchQuestionDetail()
   } catch (err) {
     console.error('创建回复失败', err)
-    window.alert('创建回复失败')
+    showError('创建回复失败')
   }
 }
 
@@ -601,7 +615,7 @@ const handleCreateReply = async (answer, comment) => {
 const handleLikeReply = async (answer, comment, reply) => {
   const userId = userStore.userInfo?.id
   if (!userId) {
-    window.alert('请先登录后再进行此操作')
+    showError('请先登录后再进行此操作')
     return
   }
   
@@ -610,7 +624,7 @@ const handleLikeReply = async (answer, comment, reply) => {
     await fetchQuestionDetail()
   } catch (err) {
     console.error('点赞回复失败', err)
-    window.alert('点赞失败')
+    showError('点赞失败')
   }
 }
 
@@ -621,24 +635,24 @@ const handleDeleteAnswer = async (answer) => {
   
   const userId = userStore.userInfo?.id
   if (!userId) {
-    window.alert('请先登录后再进行此操作')
+    showError('请先登录后再进行此操作')
     return
   }
   
   // 检查是否是作者
   if (answer.authorId !== userId) {
-    window.alert('只能删除自己的回答')
+    showError('只能删除自己的回答')
     return
   }
   
   try {
     await deleteAnswer(props.questionId, answer.answerId)
-    window.alert('删除成功')
+    showSuccess('删除成功')
     // 重新加载问题详情
     await fetchQuestionDetail()
   } catch (err) {
     console.error('删除回答失败', err)
-    window.alert('删除回答失败，请稍后重试')
+    showError('删除回答失败，请稍后重试')
   }
 }
 
@@ -649,24 +663,24 @@ const handleDeleteComment = async (answer, comment) => {
   
   const userId = userStore.userInfo?.id
   if (!userId) {
-    window.alert('请先登录后再进行此操作')
+    showError('请先登录后再进行此操作')
     return
   }
   
   // 检查是否是作者
   if (comment.authorId !== userId) {
-    window.alert('只能删除自己的评论')
+    showError('只能删除自己的评论')
     return
   }
   
   try {
     await deleteComment(props.questionId, answer.answerId, comment.commentId)
-    window.alert('删除成功')
+    showSuccess('删除成功')
     // 重新加载问题详情
     await fetchQuestionDetail()
   } catch (err) {
     console.error('删除评论失败', err)
-    window.alert('删除评论失败，请稍后重试')
+    showError('删除评论失败，请稍后重试')
   }
 }
 
@@ -677,24 +691,24 @@ const handleDeleteReply = async (answer, comment, reply) => {
   
   const userId = userStore.userInfo?.id
   if (!userId) {
-    window.alert('请先登录后再进行此操作')
+    showError('请先登录后再进行此操作')
     return
   }
   
   // 检查是否是作者
   if (reply.authorId !== userId) {
-    window.alert('只能删除自己的回复')
+    showError('只能删除自己的回复')
     return
   }
   
   try {
     await deleteReply(props.questionId, answer.answerId, comment.commentId, reply.replyId)
-    window.alert('删除成功')
+    showSuccess('删除成功')
     // 重新加载问题详情
     await fetchQuestionDetail()
   } catch (err) {
     console.error('删除回复失败', err)
-    window.alert('删除回复失败，请稍后重试')
+    showError('删除回复失败，请稍后重试')
   }
 }
 
@@ -707,24 +721,24 @@ const handleDeleteQuestion = async () => {
   
   const userId = userStore.userInfo?.id
   if (!userId) {
-    window.alert('请先登录后再进行此操作')
+    showError('请先登录后再进行此操作')
     return
   }
   
   // 检查是否是作者
   if (question.value.authorId !== userId) {
-    window.alert('只能删除自己的问题')
+    showError('只能删除自己的问题')
     return
   }
   
   try {
     await deleteQuestion(props.questionId)
-    window.alert('删除成功')
+    showSuccess('删除成功')
     // 返回问答列表页
     goBack()
   } catch (err) {
     console.error('删除问题失败', err)
-    window.alert('删除问题失败，请稍后重试')
+    showError('删除问题失败，请稍后重试')
   }
 }
 
