@@ -60,5 +60,11 @@ export const getRecommendedQAs = (userId, topN = 10) =>
     params: { userId, topN }
   }).then(res => res.data.data)
 
+// 获取收藏的问答
+export const getFavoriteQuestions = (userId) =>
+  service.get('/favorites/questions', {
+    params: { userId }
+  }).then(res => res.data.data)
+
 
 

@@ -1,5 +1,7 @@
 package com.project.login.controller;
 
+import com.project.login.mapper.UserFavoriteNoteMapper;
+import com.project.login.model.dataobject.UserFavoriteNoteDO;
 import com.project.login.model.dto.userbehavior.BehaviorType;
 import com.project.login.model.dto.userbehavior.UserBehaviorDTO;
 import com.project.login.model.response.StandardResponse;
@@ -20,6 +22,7 @@ public class NoteStatsController {
 
     private final NoteStatsService noteStatsService;
     private final UserBehaviorService userBehaviorService;
+    private final UserFavoriteNoteMapper userFavoriteNoteMapper;
 
     @Operation(summary = "Increment/Decrement a note statistic field")
     @PostMapping("/change")
@@ -47,6 +50,17 @@ public class NoteStatsController {
                 break;
             case "favorites":
                 dto.setBehaviorType(BehaviorType.FAVORITE);
+                // 处理收藏关系：如果 delta > 0 表示收藏，否则表示取消收藏
+                if (delta > 0) {
+                    // 收藏：插入或更新收藏关系
+                    UserFavoriteNoteDO favorite = new UserFavoriteNoteDO();
+                    favorite.setUserId(userId);
+                    favorite.setNoteId(noteId);
+                    userFavoriteNoteMapper.insert(favorite);
+                } else {
+                    // 取消收藏：删除收藏关系
+                    userFavoriteNoteMapper.delete(userId, noteId);
+                }
                 break;
             case "comments":
                 dto.setBehaviorType(BehaviorType.COMMENT);

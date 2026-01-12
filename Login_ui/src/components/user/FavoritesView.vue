@@ -1,563 +1,614 @@
-                                                                                                                                                                                                        <template>
+<template>
   <div class="favorites-page">
-    <section class="favorites-hero">
-      <div>
-        <p class="section-label">收藏中心</p>
-        <div class="hero-title">
-          <h2>我的收藏</h2>
-          <span>Favorites</span>
-        </div>
-        <p class="hero-desc">
-          汇总所有收藏的笔记，支持按照标题快速搜索、移动到不同收藏夹、移出收藏等操作，
-          仅更新前端样式，不更改原有业务逻辑。
-        </p>
+    <section class="favorites-panel">
+      <!-- 标签页切换按钮 -->
+      <div class="tab-buttons">
+        <button
+          v-for="tab in tabs"
+          :key="tab.value"
+          class="tab-button"
+          :class="{ active: activeTab === tab.value }"
+          @click="switchTab(tab.value)"
+        >
+          {{ tab.label }}
+        </button>
       </div>
-      <div class="hero-stats">
-        <div class="stat-card">
-          <p>收藏总数</p>
-          <strong>{{ filteredFavorites.length }}</strong>
+
+      <!-- 加载状态 -->
+      <div v-if="loading" class="state-card">
+        <span class="loader" aria-hidden="true"></span>
+        <p>加载中...</p>
+        <small>正在获取收藏内容</small>
+      </div>
+
+      <!-- 错误状态 -->
+      <div v-else-if="error" class="state-card error">
+        <p>{{ error }}</p>
+        <button class="retry-button" type="button" @click="fetchFavorites">重试</button>
+      </div>
+
+      <!-- 内容列表 -->
+      <div v-else-if="displayList.length > 0" class="results-list">
+        <div class="results-header">
+          <p class="results-count">
+            找到 <strong>{{ displayList.length }}</strong> 条{{ getTabLabel() }}
+          </p>
         </div>
-        <div class="stat-card subtle">
-          <p>收藏夹</p>
-          <strong>{{ favoriteFolders.length }}</strong>
-        </div>
+        <article
+          v-for="item in displayList"
+          :key="item.id"
+          class="result-card"
+        >
+          <div class="result-content" @click="handleItemClick(item)">
+            <h3 class="result-title">{{ item.title }}</h3>
+            <p class="result-summary">{{ item.content || item.contentSummary || '暂无内容' }}</p>
+            <div class="result-meta">
+              <div class="meta-left">
+                <span class="meta-author">
+                  <svg class="meta-icon" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M8 8a3 3 0 100-6 3 3 0 000 6zm2-3a2 2 0 11-4 0 2 2 0 014 0zm4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4zm-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.289 10 8 10c-2.29 0-3.516.68-4.168 1.332-.678.678-.83 1.418-.832 1.664h10z"/>
+                  </svg>
+                  {{ item.authorName || `用户 #${item.authorId}` || '未知作者' }}
+                </span>
+                <span class="meta-time">
+                  <svg class="meta-icon" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M8 3.5a.5.5 0 00-1 0V9a.5.5 0 00.252.434l3.5 2a.5.5 0 00.496-.868L8 8.71V3.5z"/>
+                    <path d="M8 16A8 8 0 108 0a8 8 0 000 16zm7-8A7 7 0 111 8a7 7 0 0114 0z"/>
+                  </svg>
+                  {{ getDisplayTime(item) }}
+                </span>
+              </div>
+              <div class="meta-right">
+                <span v-if="item.type === 'note'" class="meta-stat">
+                  <svg class="meta-icon" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M8 4a.5.5 0 01.5.5v3h3a.5.5 0 010 1h-3v3a.5.5 0 01-1 0v-3h-3a.5.5 0 010-1h3v-3A.5.5 0 018 4z"/>
+                  </svg>
+                  {{ item.viewCount || 0 }} 阅读
+                </span>
+                <span v-if="item.type === 'note'" class="meta-stat">
+                  <svg class="meta-icon" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M8 15A7 7 0 118 1a7 7 0 010 14zm0 1A8 8 0 108 0a8 8 0 000 16z"/>
+                    <path d="M8 4a.5.5 0 00-.5.5v3h-3a.5.5 0 000 1h3v3a.5.5 0 001 0v-3h3a.5.5 0 000-1h-3v-3A.5.5 0 008 4z"/>
+                  </svg>
+                  {{ item.likeCount || 0 }} 点赞
+                </span>
+                <span v-if="item.type === 'note'" class="meta-stat">
+                  <svg class="meta-icon" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M2 2v13.5a.5.5 0 00.74.439L8 13.069l5.26 2.87A.5.5 0 0014 15.5V2a2 2 0 00-2-2H4a2 2 0 00-2 2z"/>
+                  </svg>
+                  {{ item.favoriteCount || 0 }} 收藏
+                </span>
+                <span v-if="item.type === 'note'" class="meta-stat">
+                  <svg class="meta-icon" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M2.5 1A1.5 1.5 0 001 2.5v11A1.5 1.5 0 002.5 15h6.086a1.5 1.5 0 001.06-.44l4.915-4.914A1.5 1.5 0 0015 7.586V2.5A1.5 1.5 0 0013.5 1h-11zM2 2.5a.5.5 0 01.5-.5h11a.5.5 0 01.5.5v7.086a.5.5 0 01-.146.353l-4.915 4.915a.5.5 0 01-.353.146H2.5a.5.5 0 01-.5-.5v-11z"/>
+                    <path d="M5.5 6a.5.5 0 000 1h5a.5.5 0 000-1h-5zM5 8.5a.5.5 0 01.5-.5h5a.5.5 0 010 1h-5a.5.5 0 01-.5-.5zm0 2a.5.5 0 01.5-.5h2a.5.5 0 010 1h-2a.5.5 0 01-.5-.5z"/>
+                  </svg>
+                  {{ item.commentCount || 0 }} 评论
+                </span>
+                <span v-if="item.type === 'question'" class="meta-stat">
+                  <svg class="meta-icon" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M8 4a.5.5 0 01.5.5v3h3a.5.5 0 010 1h-3v3a.5.5 0 01-1 0v-3h-3a.5.5 0 010-1h3v-3A.5.5 0 018 4z"/>
+                  </svg>
+                  {{ item.likeCount || 0 }} 赞同
+                </span>
+                <span v-if="item.type === 'question'" class="meta-stat">
+                  <svg class="meta-icon" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M2.5 1A1.5 1.5 0 001 2.5v11A1.5 1.5 0 002.5 15h6.086a1.5 1.5 0 001.06-.44l4.915-4.914A1.5 1.5 0 0015 7.586V2.5A1.5 1.5 0 0013.5 1h-11zM2 2.5a.5.5 0 01.5-.5h11a.5.5 0 01.5.5v7.086a.5.5 0 01-.146.353l-4.915 4.915a.5.5 0 01-.353.146H2.5a.5.5 0 01-.5-.5v-11z"/>
+                    <path d="M5.5 6a.5.5 0 000 1h5a.5.5 0 000-1h-5zM5 8.5a.5.5 0 01.5-.5h5a.5.5 0 010 1h-5a.5.5 0 01-.5-.5zm0 2a.5.5 0 01.5-.5h2a.5.5 0 010 1h-2a.5.5 0 01-.5-.5z"/>
+                  </svg>
+                  {{ item.answerCount || 0 }} 回答
+                </span>
+                <span v-if="item.tags && item.tags.length" class="meta-tags">
+                  <span v-for="tag in item.tags" :key="tag" class="tag-chip">#{{ tag }}</span>
+                </span>
+              </div>
+            </div>
+          </div>
+          <!-- 取消收藏按钮 -->
+          <button
+            class="delete-btn"
+            @click.stop="handleRemoveFavorite(item)"
+            title="取消收藏"
+          >
+            <svg class="delete-icon" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M2 2v13.5a.5.5 0 00.74.439L8 13.069l5.26 2.87A.5.5 0 0014 15.5V2a2 2 0 00-2-2H4a2 2 0 00-2 2z"/>
+            </svg>
+          </button>
+        </article>
+      </div>
+
+      <!-- 空状态 -->
+      <div v-else class="state-card">
+        <p>暂无{{ getTabLabel() }}</p>
+        <small>{{ getEmptyHint() }}</small>
       </div>
     </section>
 
-    <div class="favorites-layout">
-      <aside class="folder-panel">
-        <header>
-          <div>
-            <p class="section-label">Folder</p>
-            <h3>收藏夹</h3>
-          </div>
-          <button class="ghost-btn" type="button">+ 新建收藏夹</button>
-        </header>
-
-        <ul>
-          <li>
-            <button
-              type="button"
-              :class="['folder-item', { active: activeFolder === 'all' }]"
-              @click="activeFolder = 'all'"
-            >
-              <div>
-                <strong>全部收藏</strong>
-                <p>{{ favorites.length }} 条笔记</p>
-              </div>
-              <span class="chip">ALL</span>
-            </button>
-          </li>
-          <li v-for="folder in favoriteFolders" :key="folder.id">
-            <button
-              type="button"
-              :class="['folder-item', { active: activeFolder === folder.id }]"
-              @click="activeFolder = folder.id"
-            >
-              <div>
-                <strong>{{ folder.name }}</strong>
-                <p>{{ folder.count }} 条内容</p>
-              </div>
-              <span class="chip">{{ folder.short }}</span>
-            </button>
-          </li>
-        </ul>
-      </aside>
-
-      <section class="favorites-panel">
-        <div class="panel-toolbar">
-          <div class="search-input">
-            <span aria-hidden="true">🔍</span>
-            <input
-              v-model="searchKeyword"
-              type="text"
-              placeholder="按照笔记标题搜索..."
-            />
-            <button type="button" class="text-link">清空</button>
-          </div>
-          <div class="toolbar-actions">
-            <button type="button" class="ghost-btn">批量操作</button>
-            <button type="button" class="ghost-btn">导出收藏</button>
-          </div>
-        </div>
-
-        <div v-if="filteredFavorites.length" class="favorite-list">
-          <article
-            v-for="favorite in filteredFavorites"
-            :key="favorite.id"
-            class="favorite-card"
-          >
-            <header>
-              <div>
-                <p class="favorite-type">{{ favorite.folderName }}</p>
-                <h4>{{ favorite.title }}</h4>
-              </div>
-              <span class="badge">{{ favorite.tag }}</span>
-            </header>
-
-            <p class="favorite-desc">{{ favorite.preview }}</p>
-
-            <footer>
-              <div class="meta">
-                <span>所属笔记本：{{ favorite.notebook }}</span>
-                <span>创建者：{{ favorite.author }}</span>
-                <span>收藏时间：{{ favorite.collectedAt }}</span>
-              </div>
-              <div class="actions">
-                <label class="move-select">
-                  <span>移动至</span>
-                  <select v-model="favorite.targetFolder" @change="handleMoveFavorite(favorite)">
-                    <option disabled value="">选择收藏夹</option>
-                    <option
-                      v-for="folder in favoriteFolders"
-                      :key="folder.id"
-                      :value="folder.id"
-                    >
-                      {{ folder.name }}
-                    </option>
-                  </select>
-                </label>
-                <button type="button" class="text-link" @click="handleRemoveFavorite(favorite.id)">
-                  移出收藏
-                </button>
-              </div>
-            </footer>
-          </article>
-        </div>
-
-        <div v-else class="favorite-empty">
-          <p>没有符合条件的收藏</p>
-          <small>试试调整搜索关键词或切换收藏夹</small>
-        </div>
-      </section>
-    </div>
+    <!-- 消息提示组件 -->
+    <MessageToast
+      v-if="showToast"
+      :message="toastMessage"
+      :type="toastType"
+      :duration="toastDuration"
+      @close="hideMessage"
+    />
   </div>
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
+import { useUserStore } from '@/stores/user'
+import { getFavoriteNotes } from '@/api/note'
+import { getFavoriteQuestions, favoriteQuestion } from '@/api/qa'
+import { changeNoteStat } from '@/api/note'
+import { useMessage } from '@/utils/message'
+import { formatTime } from '@/utils/time'
+import MessageToast from '@/components/MessageToast.vue'
 
-/**
- * API 占位信息（仅前端展示）
- * - GET /api/favorites
- *   输入: 无
- *   输出: { code: number, data: Favorite[] }
- *   返回码: 200 成功 / 401 未登录 / 500 服务器异常
- * - PATCH /api/favorites/{id}
- *   输入: { folderId: string }
- *   输出: { code: number, message: string }
- *   返回码: 200 更新成功 / 400 参数错误 / 404 收藏不存在
- * - DELETE /api/favorites/{id}
- *   输入: 无
- *   输出: { code: number, message: string }
- *   返回码: 200 删除成功 / 404 收藏不存在
- */
+const router = useRouter()
+const route = useRoute()
+const userStore = useUserStore()
 
-const favoriteFolders = ref([
-  { id: 'default', name: '默认收藏', short: 'DEF', count: 12 },
-  { id: 'study', name: '学习沉淀', short: 'STU', count: 6 },
-  { id: 'project', name: '项目灵感', short: 'PRJ', count: 4 },
-  { id: 'share', name: '分享材料', short: 'SHR', count: 3 }
-])
+// 消息提示
+const { showToast, toastMessage, toastType, toastDuration, showSuccess, showError, hideMessage } = useMessage()
 
-const favorites = ref([
-  {
-    id: 'fav-1',
-    title: '高效学习方法论',
-    folderId: 'study',
-    folderName: '学习沉淀',
-    tag: '学习',
-    notebook: '知识卡片',
-    author: '李四',
-    collectedAt: '2025-11-02',
-    preview: '包含拆解任务、刻意练习、复盘提升等步骤的学习指南。',
-    targetFolder: ''
-  },
-  {
-    id: 'fav-2',
-    title: '系统设计十问',
-    folderId: 'project',
-    folderName: '项目灵感',
-    tag: '系统',
-    notebook: '后端架构',
-    author: '张伟',
-    collectedAt: '2025-10-18',
-    preview: '覆盖扩展性、容错、缓存、存储等常见问题，适用于面试或方案讨论。',
-    targetFolder: ''
-  },
-  {
-    id: 'fav-3',
-    title: 'Notion 快速排版模板',
-    folderId: 'share',
-    folderName: '分享材料',
-    tag: '模板',
-    notebook: '效率工具',
-    author: '王晴',
-    collectedAt: '2025-10-08',
-    preview: '内置 6 套常用排版模块：项目追踪、会议纪要、知识沉淀……随取随用。',
-    targetFolder: ''
+// 标签页配置
+const tabs = [
+  { label: '收藏笔记', value: 'notes' },
+  { label: '收藏问答', value: 'questions' }
+]
+
+const activeTab = ref('notes')
+const loading = ref(false)
+const error = ref('')
+const favoriteNotes = ref([])
+const favoriteQuestions = ref([])
+
+// 切换标签页
+const switchTab = (tab) => {
+  if (activeTab.value === tab) return
+  activeTab.value = tab
+  fetchFavorites()
+}
+
+// 获取收藏列表
+const fetchFavorites = async () => {
+  const userId = userStore.userInfo?.id
+  if (!userId) {
+    error.value = '请先登录'
+    return
   }
-])
 
-const searchKeyword = ref('')
-const activeFolder = ref('all')
+  loading.value = true
+  error.value = ''
 
-const filteredFavorites = computed(() => {
-  return favorites.value.filter((fav) => {
-    const matchFolder = activeFolder.value === 'all' || fav.folderId === activeFolder.value
-    const matchKeyword = fav.title.toLowerCase().includes(searchKeyword.value.toLowerCase().trim())
-    return matchFolder && matchKeyword
-  })
+  try {
+    if (activeTab.value === 'notes') {
+      const notes = await getFavoriteNotes(userId)
+      favoriteNotes.value = Array.isArray(notes) ? notes : []
+    } else {
+      const questions = await getFavoriteQuestions(userId)
+      favoriteQuestions.value = Array.isArray(questions) ? questions : []
+    }
+  } catch (err) {
+    console.error('获取收藏列表失败:', err)
+    error.value = '获取收藏列表失败，请稍后重试'
+    // 如果 API 不存在，使用空数组（开发阶段）
+    if (activeTab.value === 'notes') {
+      favoriteNotes.value = []
+    } else {
+      favoriteQuestions.value = []
+    }
+  } finally {
+    loading.value = false
+  }
+}
+
+// 根据当前标签页筛选显示列表
+const displayList = computed(() => {
+  const userId = userStore.userInfo?.id
+  if (!userId) return []
+
+  switch (activeTab.value) {
+    case 'notes':
+      // 收藏笔记
+      return favoriteNotes.value.map(note => ({
+        id: note.noteId,
+        type: 'note',
+        noteId: note.noteId,
+        title: note.title || '无标题',
+        contentSummary: note.contentSummary,
+        authorName: note.authorName,
+        authorId: note.authorId,
+        viewCount: note.viewCount || 0,
+        likeCount: note.likeCount || 0,
+        favoriteCount: note.favoriteCount || 0,
+        commentCount: note.commentCount || 0,
+        updatedAt: note.updatedAt || note.createdAt
+      }))
+
+    case 'questions':
+      // 收藏的问题
+      return favoriteQuestions.value.map(question => ({
+        id: question.questionId,
+        type: 'question',
+        questionId: question.questionId,
+        title: question.title || '无标题',
+        content: question.content,
+        authorName: question.authorName || `用户 #${question.authorId}`,
+        authorId: question.authorId,
+        likeCount: question.likeCount || 0,
+        favoriteCount: question.favoriteCount || 0,
+        answerCount: question.answerCount || (question.answers?.length || 0),
+        tags: question.tags || [],
+        createdAt: question.createdAt
+      }))
+
+    default:
+      return []
+  }
 })
 
-const handleMoveFavorite = (favorite) => {
-  if (!favorite.targetFolder) return
-  // TODO: 调用 PATCH /api/favorites/{id} 更新收藏夹
-  const folder = favoriteFolders.value.find((item) => item.id === favorite.targetFolder)
-  if (folder) {
-    favorite.folderName = folder.name
-    favorite.folderId = folder.id
-  }
-  favorite.targetFolder = ''
+// 获取标签页名称
+const getTabLabel = () => {
+  const tab = tabs.find(t => t.value === activeTab.value)
+  return tab ? tab.label : '内容'
 }
 
-const handleRemoveFavorite = (id) => {
-  // TODO: 调用 DELETE /api/favorites/{id} 移出收藏
-  const index = favorites.value.findIndex((fav) => fav.id === id)
-  if (index !== -1) {
-    favorites.value.splice(index, 1)
+// 获取空状态提示
+const getEmptyHint = () => {
+  switch (activeTab.value) {
+    case 'notes':
+      return '去热榜页面收藏一些笔记吧'
+    case 'questions':
+      return '去问答页面收藏一些问题吧'
+    default:
+      return ''
   }
 }
+
+// 获取显示时间
+const getDisplayTime = (item) => {
+  if (!item) return '时间未知'
+  const time = item.updatedAt || item.createdAt
+  if (time) {
+    return formatTime(time) || '时间未知'
+  }
+  return '时间未知'
+}
+
+// 处理点击
+const handleItemClick = (item) => {
+  if (item.type === 'note') {
+    router.push({
+      path: route.path,
+      query: {
+        ...route.query,
+        tab: 'note-detail',
+        noteId: item.noteId,
+        title: item.title,
+        fromTab: 'favorites'
+      }
+    })
+  } else if (item.type === 'question') {
+    router.push({
+      path: route.path,
+      query: {
+        ...route.query,
+        tab: 'qa-detail',
+        questionId: item.questionId
+      }
+    })
+  }
+}
+
+// 取消收藏
+const handleRemoveFavorite = async (item) => {
+  const userId = userStore.userInfo?.id
+  if (!userId) {
+    showError('请先登录')
+    return
+  }
+
+  try {
+    if (item.type === 'note') {
+      await changeNoteStat(item.noteId, userId, 'favorites', -1)
+      favoriteNotes.value = favoriteNotes.value.filter(note => note.noteId !== item.noteId)
+    } else {
+      await favoriteQuestion(userId, item.questionId)
+      favoriteQuestions.value = favoriteQuestions.value.filter(q => q.questionId !== item.questionId)
+    }
+    showSuccess('已取消收藏')
+  } catch (err) {
+    console.error('取消收藏失败:', err)
+    showError('取消收藏失败')
+  }
+}
+
+// 监听标签页切换
+watch(activeTab, () => {
+  fetchFavorites()
+})
+
+// 组件挂载时获取收藏列表
+onMounted(() => {
+  fetchFavorites()
+})
 </script>
 
 <style scoped>
+:global(:root) {
+  --brand-primary: #007FFF;
+  --surface-base: #ffffff;
+  --surface-muted: #f6f6f6;
+  --line-soft: #e2e2e2;
+  --text-strong: #111c17;
+  --text-secondary: #666;
+  --text-muted: #999;
+}
+
 .favorites-page {
+  min-height: 100vh;
+  padding: 20px 24px 100px;
+  background: var(--surface-muted);
+}
+
+.favorites-panel {
+  width: min(1200px, 100%);
+  margin: 0 auto;
+  background: var(--surface-base);
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  padding: 32px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  min-height: 400px;
+}
+
+.tab-buttons {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.tab-button {
+  padding: 8px 16px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 14px;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.tab-button:hover {
+  background: var(--surface-muted);
+  color: var(--text-strong);
+}
+
+.tab-button.active {
+  background: var(--brand-primary);
+  color: #fff;
+  font-weight: 600;
+}
+
+.results-header {
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.results-count {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.results-count strong {
+  color: var(--brand-primary);
+  font-weight: 600;
+}
+
+.results-list {
   display: flex;
   flex-direction: column;
-  gap: 28px;
-  padding: clamp(16px, 3vw, 36px);
+  gap: 16px;
 }
 
-.favorites-hero {
-  background: var(--surface-base);
-  border-radius: var(--radius-lg);
-  padding: 32px clamp(20px, 4vw, 48px);
+.result-card {
+  padding: 20px;
+  border-radius: 8px;
   border: 1px solid var(--line-soft);
-  box-shadow: var(--shadow-card);
+  background: var(--surface-base);
+  transition: border-color 0.2s, box-shadow 0.2s;
+  cursor: pointer;
+  position: relative;
+}
+
+.result-card:hover {
+  border-color: var(--brand-primary);
+  box-shadow: 0 2px 8px rgba(0, 127, 255, 0.1);
+}
+
+.result-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.result-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-strong);
+  line-height: 1.5;
+}
+
+.result-summary {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.result-meta {
   display: flex;
   justify-content: space-between;
-  gap: 24px;
+  align-items: center;
   flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 8px;
 }
 
-.hero-title {
+.meta-left,
+.meta-right {
   display: flex;
   align-items: center;
   gap: 16px;
-  margin: 8px 0;
+  flex-wrap: wrap;
 }
 
-.hero-title span {
-  font-size: 14px;
-  letter-spacing: 0.4em;
-  color: var(--text-muted);
-  text-transform: uppercase;
-}
-
-.hero-desc {
-  max-width: 620px;
-}
-
-.hero-stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 12px;
-  flex: 1;
-}
-
-.stat-card {
-  border-radius: var(--radius-md);
-  border: 1px solid var(--line-soft);
-  padding: 16px 18px;
-  background: var(--surface-soft);
-}
-
-.stat-card p {
-  font-size: 12px;
-  letter-spacing: 0.2em;
-  color: var(--text-muted);
-  margin-bottom: 6px;
-}
-
-.stat-card strong {
-  font-size: 26px;
-}
-
-.stat-card.subtle {
-  background: rgba(47, 125, 255, 0.08);
-  border-color: rgba(47, 125, 255, 0.2);
-}
-
-.favorites-layout {
-  display: grid;
-  grid-template-columns: 280px 1fr;
-  gap: 24px;
-}
-
-.folder-panel,
-.favorites-panel {
-  background: var(--surface-base);
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--line-soft);
-  box-shadow: var(--shadow-soft);
-}
-
-.folder-panel {
-  padding: 24px;
-}
-
-.folder-panel header {
+.meta-author,
+.meta-time,
+.meta-stat {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 18px;
-  gap: 12px;
-}
-
-.folder-panel h3 {
-  margin-top: 6px;
-  font-size: 18px;
-}
-
-.folder-panel ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.folder-item {
-  width: 100%;
-  border: 1px solid transparent;
-  border-radius: var(--radius-md);
-  padding: 16px;
-  background: var(--surface-soft);
-  text-align: left;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 10px;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
-}
-
-.folder-item strong {
-  font-size: 15px;
-  color: var(--text-strong);
-}
-
-.folder-item p {
+  gap: 4px;
   font-size: 13px;
   color: var(--text-muted);
 }
 
-.folder-item.active {
-  border-color: var(--brand-primary);
-  background: #fff;
-  box-shadow: 0 12px 36px rgba(34, 191, 163, 0.18);
+.meta-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
 }
 
-.chip {
-  font-size: 11px;
-  letter-spacing: 0.2em;
-  color: var(--text-muted);
-}
-
-.favorites-panel {
-  padding: 28px;
+.meta-tags {
   display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.panel-toolbar {
-  display: flex;
+  gap: 6px;
   flex-wrap: wrap;
-  gap: 12px;
-  align-items: center;
-  justify-content: space-between;
 }
 
-.search-input {
-  flex: 1;
-  min-width: 220px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  border: 1px solid var(--line-soft);
-  border-radius: 999px;
-  padding: 0 16px;
-  background: var(--surface-soft);
+.tag-chip {
+  background: #eef2ff;
+  color: #4338ca;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 12px;
 }
 
-.search-input input {
-  flex: 1;
-  border: none;
+.delete-btn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
   background: transparent;
-  padding: 12px 0;
-  font-size: 15px;
-  color: var(--text-strong);
-}
-
-.search-input input:focus {
-  outline: none;
-}
-
-.toolbar-actions {
-  display: flex;
-  gap: 10px;
-}
-
-.favorite-list {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-}
-
-.favorite-card {
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--line-soft);
-  padding: 22px;
-  background: var(--surface-base);
-  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.06);
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.favorite-card header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-}
-
-.favorite-type {
-  font-size: 12px;
-  letter-spacing: 0.3em;
+  border: none;
+  padding: 6px;
+  cursor: pointer;
   color: var(--text-muted);
-  margin-bottom: 6px;
-}
-
-.favorite-card h4 {
-  margin: 0;
-  font-size: 20px;
-}
-
-.badge {
-  padding: 6px 14px;
-  border-radius: 999px;
-  border: 1px solid var(--brand-primary);
-  color: var(--brand-primary);
-  font-size: 13px;
-}
-
-.favorite-desc {
-  color: var(--text-secondary);
-}
-
-.favorite-card footer {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: center;
-}
-
-.meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px 20px;
-  font-size: 13px;
-  color: var(--text-muted);
-}
-
-.actions {
+  border-radius: 4px;
+  transition: all 0.2s;
   display: flex;
   align-items: center;
-  gap: 14px;
+  justify-content: center;
+  z-index: 10;
 }
 
-.move-select {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  color: var(--text-secondary);
+.delete-btn:hover {
+  background: rgba(220, 53, 69, 0.1);
+  color: #dc3545;
 }
 
-.move-select select {
-  border: 1px solid var(--line-soft);
-  border-radius: 12px;
-  padding: 6px 10px;
-  background: var(--surface-soft);
-  font-size: 14px;
+.delete-icon {
+  width: 16px;
+  height: 16px;
 }
 
-.favorite-empty {
+.state-card {
+  border-radius: 8px;
   border: 1px dashed var(--line-soft);
-  border-radius: var(--radius-lg);
-  padding: 40px;
+  padding: 60px 24px;
   text-align: center;
   color: var(--text-secondary);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
 }
 
-.favorite-empty p {
-  font-size: 18px;
-  margin-bottom: 10px;
+.state-card.error {
+  color: #ff4d4f;
 }
 
-.ghost-btn {
-  border-radius: 999px;
+.state-card p {
+  margin: 0;
+  font-size: 16px;
+  color: var(--text-strong);
+}
+
+.state-card small {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.loader {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 3px solid var(--line-soft);
+  border-top-color: var(--brand-primary);
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.retry-button {
+  margin-top: 12px;
+  padding: 8px 16px;
   border: 1px solid var(--line-soft);
-  padding: 8px 18px;
-  background: transparent;
-  color: var(--text-secondary);
+  border-radius: 6px;
+  background: var(--surface-base);
+  color: var(--text-strong);
+  cursor: pointer;
+  transition: all 0.2s;
 }
 
-.ghost-btn:hover,
-.text-link:hover {
-  color: var(--brand-primary);
-  border-color: var(--brand-primary);
+.retry-button:hover {
+  border-color: #007FFF;
+  color: #007FFF;
 }
 
-.text-link {
-  border: none;
-  background: none;
-  color: var(--brand-secondary);
-  font-weight: 600;
-  padding: 0;
-}
-
-@media (max-width: 1024px) {
-  .favorites-layout {
-    grid-template-columns: 1fr;
+@media (max-width: 768px) {
+  .favorites-page {
+    padding: 16px;
   }
-}
 
-@media (max-width: 640px) {
-  .favorites-hero,
-  .folder-panel,
   .favorites-panel {
-    border-radius: 24px;
-    padding: 24px;
+    padding: 20px;
   }
 
-  .favorite-card footer {
+  .result-meta {
     flex-direction: column;
     align-items: flex-start;
   }
+
+  .meta-left,
+  .meta-right {
+    width: 100%;
+    justify-content: flex-start;
+  }
 }
 </style>
-

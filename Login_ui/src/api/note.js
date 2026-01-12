@@ -284,3 +284,15 @@ export const searchNotesByAuthor = (authorName, userId) => {
     // 注意：这里使用 authorName 作为关键词，搜索结果会包含该作者的笔记
     return searchNotes(authorName, userId);
 };
+
+/**
+ * [对应后端: GET /api/v1/favorites/notes]
+ * 获取用户收藏的笔记列表 (返回 List<NoteSearchVO>)
+ * @param {number} userId - 用户ID
+ * @returns {Promise<Array>} 返回收藏的笔记列表
+ */
+export const getFavoriteNotes = (userId) => {
+    return service.get('/favorites/notes', {
+        params: { userId }
+    }).then(res => res.data.data);
+};

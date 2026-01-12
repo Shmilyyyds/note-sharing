@@ -192,6 +192,7 @@ const currentUserId = computed(() => userInfo.value?.id)
 
 const tabs = [
   { value: 'follow', label: '关注', desc: 'Follow' },
+  { value: 'favorites', label: '收藏', desc: 'Favorites' },
   { value: 'recommend', label: '推荐', desc: 'Recommend' },
   { value: 'hot', label: '热榜', desc: 'Hot' },
   { value: 'circle', label: '问答', desc: 'Q&A' },
@@ -214,7 +215,7 @@ const selectedWorkspaceId = ref(null) // 当前选中的笔记空间ID（在work
 const getTabFromRoute = () => {
   const tabFromQuery = route.query.tab
   // 验证 tab 值是否有效（包括search tab和note-detail tab）
-  const validTabs = [...tabs.map(t => t.value), 'search', 'profile', 'note-detail', 'follow-list', 'user-notes']
+  const validTabs = [...tabs.map(t => t.value), 'search', 'profile', 'note-detail', 'qa-detail', 'follow-list', 'user-notes']
   if (tabFromQuery && validTabs.includes(tabFromQuery)) {
     return tabFromQuery
   }
