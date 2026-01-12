@@ -32,17 +32,19 @@
       </div>
 
       <div class="header-actions">
-<button class="ask-button" type="button" @click="handleAskClick">
+      <button class="ask-button" type="button" @click="handleAskClick">
           <span class="icon">+</span> 提问
         </button>
 
-        <div class="action-icon-wrapper message-wrapper">
+        <div class="action-icon-wrapper message-wrapper" @click="togglePrivateMessagePanel">
           <img
               src="/assets/icons/icon-private-message.svg"
               alt="私信"
               class="action-image-icon private-message-icon-img"
           />
-          <span class="badge">16</span>
+          <span v-if="privateMessageUnreadTotal > 0" class="badge">
+            {{ privateMessageUnreadTotal > 99 ? '99+' : privateMessageUnreadTotal }}
+          </span>
           <span class="action-text">私信</span>
         </div>
 
@@ -153,11 +155,15 @@
         <ProfileView />
       </section>
     </main>
+    <PrivateMessagePanel
+      v-model:visible="showPrivateMessagePanel"
+      @unread-updated="handleUnreadUpdated"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, watch, onMounted, nextTick, computed } from 'vue'
+import { ref, watch, onMounted, onBeforeUnmount, nextTick, computed } from 'vue'
 import SearchView from '../components/user/SearchView.vue'
 import WorkspaceView from '../components/user/WorkspaceView.vue'
 import ProfileView from '../components/user/ProfileView.vue'
@@ -171,10 +177,12 @@ import QACircleView from '../components/user/QACircleView.vue'
 import QADetailView from '../components/user/QADetailView.vue'
 import FollowListView from '../components/user/FollowListView.vue'
 import UserNotesView from '../components/user/UserNotesView.vue'
+import PrivateMessagePanel from '../components/user/PrivateMessagePanel.vue'
 import { useRouter, useRoute } from 'vue-router'
 import service from '../api/request'
 import { useUserStore } from '@/stores/user'
 import { storeToRefs } from 'pinia'
+import { fetchUnreadTotal as fetchConversationUnreadTotal } from '@/api/conversation'
 
 const router = useRouter()
 const route = useRoute()
@@ -189,6 +197,35 @@ const userAvatarUrl = computed(() => {
 
 // 当前用户ID
 const currentUserId = computed(() => userInfo.value?.id)
+
+// 私信面板控制与未读数
+const showPrivateMessagePanel = ref(false)
+const privateMessageUnreadTotal = ref(0)
+let privateMessageTimer = null
+
+const refreshPrivateMessageUnread = async () => {
+  if (!currentUserId.value) {
+    privateMessageUnreadTotal.value = 0
+    return
+  }
+  try {
+    const total = await fetchConversationUnreadTotal(currentUserId.value)
+    privateMessageUnreadTotal.value = total || 0
+  } catch (e) {
+    console.error('加载私信未读数失败', e)
+  }
+}
+
+const togglePrivateMessagePanel = async () => {
+  showPrivateMessagePanel.value = !showPrivateMessagePanel.value
+  if (showPrivateMessagePanel.value) {
+    await refreshPrivateMessageUnread()
+  }
+}
+
+const handleUnreadUpdated = (total) => {
+  privateMessageUnreadTotal.value = total || 0
+}
 
 const tabs = [
   { value: 'follow', label: '关注', desc: 'Follow' },
@@ -743,6 +780,14 @@ onMounted(async () => {
       query: { ...route.query, tab: currentTab.value }
     })
   }
+
+  // 初始化私信未读数
+  await refreshPrivateMessageUnread()
+
+  // 周期性刷新未读数（即使未打开私信中心，也能收到新消息提示）
+  privateMessageTimer = setInterval(() => {
+    refreshPrivateMessageUnread()
+  }, 10000) // 每 10 秒刷新一次
   
   // 恢复搜索关键词
   if (route.query.keyword) {
@@ -758,6 +803,13 @@ onMounted(async () => {
   
   // 尝试从 URL 恢复编辑器状态
   await restoreEditorFromRoute()
+})
+
+onBeforeUnmount(() => {
+  if (privateMessageTimer) {
+    clearInterval(privateMessageTimer)
+    privateMessageTimer = null
+  }
 })
 
 // --- 结束新增 ---

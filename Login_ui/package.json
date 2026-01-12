@@ -34,6 +34,8 @@
     "lowlight": "^3.3.0",
     "markdown-it": "^14.1.0",
     "pinia": "^3.0.4",
+    "sockjs-client": "^1.6.1",
+    "@stomp/stompjs": "^7.0.0",
     "smeditor": "^0.1.19",
     "turndown": "^7.2.2",
     "vue": "^3.3.4",
