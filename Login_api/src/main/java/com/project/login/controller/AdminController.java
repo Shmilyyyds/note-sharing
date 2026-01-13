@@ -123,6 +123,17 @@ public class AdminController {
         return StandardResponse.success("获取成功", remarks);
     }
 
+    @Operation(summary = "管理员删除评论（可删除任何评论）")
+    @DeleteMapping("/remarks/{remarkId}")
+    public StandardResponse<Boolean> adminDeleteRemark(@PathVariable String remarkId) {
+        Boolean result = remarkService.adminDeleteRemark(remarkId);
+        if (result) {
+            return StandardResponse.success("删除成功", true);
+        } else {
+            return StandardResponse.error("删除失败");
+        }
+    }
+
     @Operation(summary = "检查纯文本敏感词")
     @PostMapping("/sensitive/check/text")
     public StandardResponse<SensitiveCheckResult> checkText(@RequestBody SensitiveTextCheckRequest request) {

@@ -59,6 +59,12 @@ export const getRemarkList = async () => {
   return res.data
 }
 
+// 管理员删除评论（可删除任何评论）
+export const adminDeleteRemark = async (remarkId) => {
+  const res = await request.delete(`/admin/remarks/${remarkId}`)
+  return res.data
+}
+
 // ========== 敏感词检查 ==========
 // 检查纯文本敏感词
 export const checkSensitiveText = async (text) => {
