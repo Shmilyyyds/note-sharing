@@ -41,7 +41,7 @@
               <td colspan="7" class="loading-cell">加载中...</td>
             </tr>
             <tr v-else-if="moderations.length === 0">
-              <td colspan="7" class="empty-cell">暂无待审查内容</td>
+              <td colspan="7" class="empty-cell">暂无审查记录</td>
             </tr>
             <tr v-else v-for="mod in moderations" :key="mod.id">
               <td>{{ mod.id }}</td>
@@ -120,6 +120,10 @@
           <div class="detail-item">
             <label>创建时间：</label>
             <span>{{ formatTime(currentModeration?.createdAt) }}</span>
+          </div>
+          <div v-if="currentModeration?.adminComment" class="detail-item">
+            <label>管理员备注：</label>
+            <span>{{ currentModeration.adminComment }}</span>
           </div>
           <div v-if="!currentModeration?.isHandled && currentModeration?.status === 'FLAGGED'" class="handle-section">
             <label>管理员备注：</label>

@@ -118,6 +118,16 @@ public class ModerationService {
         return convertToVOList(doList);
     }
 
+    /**
+     * 获取所有审查记录（包括已处理和未处理的），用于留档
+     * @return 所有审查记录列表
+     */
+    @Transactional(readOnly = true)
+    public List<NoteModerationVO> getAllFlagged() {
+        List<NoteModerationDO> doList = noteModerationMapper.selectAllFlagged();
+        return convertToVOList(doList);
+    }
+
     @Transactional(readOnly = true)
     public NoteModerationVO getById(Long id) {
         NoteModerationDO moderationDO = noteModerationMapper.selectById(id);

@@ -225,10 +225,10 @@ public class AdminController {
         return StandardResponse.success("重新加载成功", result);
     }
 
-    @Operation(summary = "获取待处理的审查记录列表")
+    @Operation(summary = "获取所有审查记录列表（包括已处理和未处理的，用于留档）")
     @GetMapping("/moderation/pending")
     public StandardResponse<List<NoteModerationVO>> getPendingModerations() {
-        List<NoteModerationVO> moderations = moderationService.getPendingFlagged();
+        List<NoteModerationVO> moderations = moderationService.getAllFlagged();
         return StandardResponse.success("获取成功", moderations);
     }
 
@@ -263,7 +263,8 @@ public class AdminController {
         try {
             // 构造 SensitiveCheckResult 对象
             SensitiveCheckResult result = new SensitiveCheckResult();
-            result.setStatus(request.getStatus());
+            // 提交审查时，状态必须为FLAGGED，确保能被管理员端查询到
+            result.setStatus("FLAGGED");
             result.setRiskLevel(request.getRiskLevel());
             result.setScore(request.getScore());
             result.setCategories(request.getCategories());
@@ -297,7 +298,7 @@ public class AdminController {
                     .moderationId(moderationDO.getId())
                     .contentType("NOTE")  // 内容类型固定为NOTE
                     .contentId(request.getNoteId())
-                    .status(request.getStatus())
+                    .status("FLAGGED")  // 提交审查时状态固定为FLAGGED
                     .createdAt(moderationDO.getCreatedAt())
                     .build();
             

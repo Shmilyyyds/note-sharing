@@ -29,6 +29,10 @@ public interface NoteModerationMapper {
     })
     List<NoteModerationDO> selectPendingFlagged();
 
+    @Select("SELECT * FROM note_moderation WHERE status = 'FLAGGED' ORDER BY created_at DESC")
+    @ResultMap("BaseResultMap")
+    List<NoteModerationDO> selectAllFlagged();
+
     @Update("UPDATE note_moderation SET is_handled = #{isHandled}, admin_comment = #{adminComment} WHERE id = #{id}")
     void updateHandled(NoteModerationDO record);
 
