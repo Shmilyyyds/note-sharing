@@ -117,14 +117,14 @@
           </div>
           <div class="tiptap-toolbar" :class="{ 'disabled-toolbar': isNoteUnderModerationRef }">
             <div class="toolbar-group">
-              <button @click="editor.chain().focus().undo().run()" :disabled="!editor.can().undo()" title="撤销">
+              <button @click="editor && editor.view ? editor.chain().focus().undo().run() : null" :disabled="!editor || !editor.can().undo()" title="撤销">
                 <svg viewBox="0 0 24 24"><path fill="currentColor" d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88c3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/></svg>
               </button>
-              <button @click="editor.chain().focus().redo().run()" :disabled="!editor.can().redo()" title="重做">
+              <button @click="editor && editor.view ? editor.chain().focus().redo().run() : null" :disabled="!editor || !editor.can().redo()" title="重做">
                 <svg viewBox="0 0 24 24"><path fill="currentColor" d="M18.4 10.6C16.55 9 14.15 8 11.5 8c-4.65 0-8.58 3.03-9.96 7.22L3.9 16a8.002 8.002 0 0 1 7.6-5.5c1.95 0 3.73.72 5.12 1.88L13 16h9V7l-3.6 3.6z"/></svg>
               </button>
 
-              <button @click="editor.chain().focus().unsetAllMarks().run()" title="清除格式">
+              <button @click="editor && editor.view ? editor.chain().focus().unsetAllMarks().run() : null" :disabled="!editor || isNoteUnderModerationRef" title="清除格式">
                 <svg viewBox="0 0 24 24"><path fill="currentColor" d="M19.89 18.48l-7.45-7.45l.95-2.26L15.1 5.3a1 1 0 0 1 1.59.67l2.09 9.17l1.11 3.34M6 19v-2.4l2.39-2.39l2.4 2.4H6m1.39-8.71l4.62-4.62a.993.993 0 0 1 1.41 0l2.83 2.83l-1.79.4L9.09 3.53L2.53 10.09C1.94 10.68 1.94 11.63 2.53 12.22l2.83 2.83L11 9.41L7.39 10.29z"/></svg>
               </button>
             </div>
@@ -138,37 +138,37 @@
 
               <div v-if="showInsertMenu" class="dropdown-menu insert-menu" @click.stop="closeAllDropdowns">
                 <div class="menu-item" @click="triggerImageUpload"><span class="emoji">🖼️</span> 图片</div>
-                <div class="menu-item" @click="editor.chain().focus().toggleCodeBlock().run()"><span class="emoji">💻</span> 代码块</div>
-                <div class="menu-item" @click="editor.chain().focus().setHorizontalRule().run()"><span class="emoji">―</span> 水平线</div>
+                <div class="menu-item" @click="editor && editor.view ? editor.chain().focus().toggleCodeBlock().run() : null"><span class="emoji">💻</span> 代码块</div>
+                <div class="menu-item" @click="editor && editor.view ? editor.chain().focus().setHorizontalRule().run() : null"><span class="emoji">―</span> 水平线</div>
               </div>
             </div>
 
             <div class="divider"></div>
 
             <div class="toolbar-group">
-              <select @change="changeHeading($event)" class="toolbar-select" title="段落格式">
-                <option value="0" :selected="editor.isActive('paragraph')">正文</option>
-                <option value="1" :selected="editor.isActive('heading', { level: 1 })">标题 1</option>
-                <option value="2" :selected="editor.isActive('heading', { level: 2 })">标题 2</option>
-                <option value="3" :selected="editor.isActive('heading', { level: 3 })">标题 3</option>
+              <select @change="changeHeading($event)" class="toolbar-select" :disabled="!editor || isNoteUnderModerationRef" title="段落格式">
+                <option value="0" :selected="editor && editor.isActive('paragraph')">正文</option>
+                <option value="1" :selected="editor && editor.isActive('heading', { level: 1 })">标题 1</option>
+                <option value="2" :selected="editor && editor.isActive('heading', { level: 2 })">标题 2</option>
+                <option value="3" :selected="editor && editor.isActive('heading', { level: 3 })">标题 3</option>
               </select>
             </div>
 
             <div class="toolbar-group">
-              <button @click="editor.chain().focus().toggleBold().run()" :class="{ 'is-active': editor.isActive('bold') }" title="加粗">
+              <button @click="editor && editor.view ? editor.chain().focus().toggleBold().run() : null" :disabled="!editor || isNoteUnderModerationRef" :class="{ 'is-active': editor && editor.isActive('bold') }" title="加粗">
                 <svg viewBox="0 0 24 24"><path fill="currentColor" d="M15.6 10.79c.97-.67 1.65-1.77 1.65-2.79c0-2.26-1.75-4-4-4H7v14h7.04c2.09 0 3.71-1.7 3.71-3.79c0-1.52-.86-2.82-2.15-3.42zM10 6.5h3c.83 0 1.5.67 1.5 1.5s-.67 1.5-1.5 1.5h-3v-3zm3.5 9H10v-3h3.5c.83 0 1.5.67 1.5 1.5s-.67 1.5-1.5 1.5z"/></svg>
               </button>
-              <button @click="editor.chain().focus().toggleUnderline().run()" :class="{ 'is-active': editor.isActive('underline') }" title="下划线">
+              <button @click="editor && editor.view ? editor.chain().focus().toggleUnderline().run() : null" :disabled="!editor || isNoteUnderModerationRef" :class="{ 'is-active': editor && editor.isActive('underline') }" title="下划线">
                 <svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 17c3.31 0 6-2.69 6-6V3h-2.5v8c0 1.93-1.57 3.5-3.5 3.5S8.5 12.93 8.5 11V3H6v8c0 3.31 2.69 6 6 6zm-7 2v2h14v-2H5z"/></svg>
               </button>
-              <button @click="editor.chain().focus().toggleStrike().run()" :class="{ 'is-active': editor.isActive('strike') }" title="删除线">
+              <button @click="editor && editor.view ? editor.chain().focus().toggleStrike().run() : null" :disabled="!editor || isNoteUnderModerationRef" :class="{ 'is-active': editor && editor.isActive('strike') }" title="删除线">
                 <svg viewBox="0 0 24 24"><path fill="currentColor" d="M10 19h4v-3h-4v3zM5 4v3h5v3h4V7h5V4H5zM3 14h18v-2H3v2z"/></svg>
               </button>
             </div>
 
             <div class="toolbar-group">
               <div class="color-picker-wrapper">
-                <input type="color" class="color-input" @input="editor.chain().focus().toggleHighlight({ color: $event.target.value }).run()" title="背景颜色">
+                <input type="color" class="color-input" :disabled="!editor || isNoteUnderModerationRef" @input="editor && editor.view ? editor.chain().focus().toggleHighlight({ color: $event.target.value }).run() : null" title="背景颜色">
                 <svg viewBox="0 0 24 24" width="18" height="18" style="margin-top:2px"><path fill="currentColor" d="M18.5 1.15c-1.79-.63-3.74-.12-5.02 1.33l-1.53 1.74l5.5 5.5l1.74-1.53c1.45-1.27 1.96-3.23 1.33-5.02l-2.02 2.02l-2.02-2.02l2.02-2.02zM4.13 14.06L12.95 5.24l5.5 5.5L9.63 19.56c-1.26 1.26-3.16 1.55-4.72.72l3.33-3.33l-2.12-2.12l-3.33 3.33c-.83-1.56-.54-3.46.72-4.72l.62.62zM3 21.76L4.24 23l3.54-3.54l-2.12-2.12L3 21.76z"/></svg>
               </div>
             </div>
@@ -176,13 +176,13 @@
             <div class="divider"></div>
 
             <div class="toolbar-group">
-              <button @click="editor.chain().focus().toggleTaskList().run()" :class="{ 'is-active': editor.isActive('taskList') }" title="待办事项">
+              <button @click="editor && editor.view ? editor.chain().focus().toggleTaskList().run() : null" :disabled="!editor || isNoteUnderModerationRef" :class="{ 'is-active': editor && editor.isActive('taskList') }" title="待办事项">
                 <svg viewBox="0 0 24 24"><path fill="currentColor" d="M19 3H5c-1.11 0-2 .89-2 2v14c0 1.11.89 2 2 2h14c1.1 0 2-.89 2-2V5a2 2 0 0 0-2-2m-9 14l-5-5l1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
               </button>
-              <button @click="editor.chain().focus().toggleBulletList().run()" :class="{ 'is-active': editor.isActive('bulletList') }" title="无序列表">
+              <button @click="editor && editor.view ? editor.chain().focus().toggleBulletList().run() : null" :disabled="!editor || isNoteUnderModerationRef" :class="{ 'is-active': editor && editor.isActive('bulletList') }" title="无序列表">
                 <svg viewBox="0 0 24 24"><path fill="currentColor" d="M7 5h14v2H7V5m0 8v-2h14v2H7M7 21v-2h14v2H7M3 6c0-.55.45-1 1-1s1 .45 1 1s-.45 1-1 1s-1-.45-1-1m0 8c0-.55.45-1 1-1s1 .45 1 1s-.45 1-1 1s-1-.45-1-1m0 8c0-.55.45-1 1-1s1 .45 1 1s-.45 1-1 1s-1-.45-1-1z"/></svg>
               </button>
-              <button @click="editor.chain().focus().toggleOrderedList().run()" :class="{ 'is-active': editor.isActive('orderedList') }" title="有序列表">
+              <button @click="editor && editor.view ? editor.chain().focus().toggleOrderedList().run() : null" :disabled="!editor || isNoteUnderModerationRef" :class="{ 'is-active': editor && editor.isActive('orderedList') }" title="有序列表">
                 <svg viewBox="0 0 24 24"><path fill="currentColor" d="M7 13v-2h14v2H7m0 6v-2h14v2H7M7 7V5h14v2H7M3 8V5H2V4h2v4H3m-1 9v-1h3v4H2v-1h2v-.5H3v-1h2v-.5H2M2 14v-4h3v1H4v.5h1v1H4v.5h2v1H2z"/></svg>
               </button>
             </div>
@@ -477,6 +477,7 @@ const fileInput = ref(null);
 const uploadFileInput = ref(null);
 const isLoading = ref(false);
 const renameInputRef = ref(null);
+const isSelectingNote = ref(false); // 防止重复点击笔记
 
 // 敏感词检测相关状态
 const isCheckingSensitive = ref(false);
@@ -644,6 +645,26 @@ const debouncedUpdateNote = debounce(async (meta, file) => {
     console.error('自动保存笔记失败:', error);
   }
 }, 5000); // 5000ms = 1秒的延迟，可以根据需要调整
+
+// 安全的编辑器 focus 包装函数
+const safeEditorFocus = (callback) => {
+  if (!editor.value) return;
+  try {
+    // 检查编辑器视图是否可用
+    if (editor.value.view && editor.value.view.hasFocus) {
+      callback();
+    } else {
+      // 如果视图不可用，延迟执行
+      nextTick(() => {
+        if (editor.value && editor.value.view && editor.value.view.hasFocus) {
+          callback();
+        }
+      });
+    }
+  } catch (error) {
+    console.warn('编辑器 focus 失败:', error);
+  }
+};
 
 const editor = useEditor({
   content: '',
@@ -1202,8 +1223,25 @@ const fetchFileContentByUrl = async (url) => {
 };
 
 const selectNote = async (note) => {
-  // 如果切换回同一个笔记，需要强制重新获取内容
+  // 防止重复点击：如果正在加载同一个笔记，直接返回
+  if (isSelectingNote.value && currentNote.value && currentNote.value.id === note.id) {
+    console.log('正在加载该笔记，忽略重复点击');
+    return;
+  }
+  
+  // 如果切换回同一个笔记，且已经加载完成，直接返回（不需要重新加载）
   const isSameNote = currentNote.value && currentNote.value.id === note.id;
+  if (isSameNote && !isSelectingNote.value) {
+    console.log('该笔记已经加载完成，无需重新加载');
+    // 只更新标题等基本信息，不重新加载内容
+    currentTitle.value = note.title;
+    // 检查笔记是否在审核中（状态可能已变化）
+    isNoteUnderModerationRef.value = await isNoteUnderModeration(note.id);
+    return;
+  }
+  
+  // 设置加载状态
+  isSelectingNote.value = true;
   
   currentNote.value = note;
   currentTitle.value = note.title;
@@ -1222,42 +1260,44 @@ const selectNote = async (note) => {
     console.error(`Note ${note.id} missing filename.`);
     // 强制清空编辑器/预览区
     editor.value?.commands.setContent('', false);
+    isSelectingNote.value = false;
     return;
   }
 
   try {
     // 2. 获取 MinIO 文件 URL
-    // 如果是同一个笔记，添加时间戳参数强制刷新缓存
     const fileUrl = await getFileUrl(fileName);
     if (!fileUrl) {
       throw new Error('Failed to get file URL.');
     }
 
-    // 如果是同一个笔记，添加时间戳参数强制刷新缓存
-    const urlWithCacheBuster = isSameNote 
-      ? `${fileUrl}${fileUrl.includes('?') ? '&' : '?'}_t=${Date.now()}`
-      : fileUrl;
-
     if (note.fileType === 'pdf') {
       // 3. 处理 PDF 预览
-      // PDF 只需要 URL。您需要将这个 URL 传递给您集成的 PDF 预览组件。
-      pdfPreviewUrl.value = urlWithCacheBuster;
-      // 记得在模板中绑定这个 URL 到 PDF 预览组件
-      console.log(`PDF Preview URL: ${urlWithCacheBuster}`);
+      pdfPreviewUrl.value = fileUrl;
+      console.log(`PDF Preview URL: ${fileUrl}`);
     } else if (note.fileType === 'md' && editor.value) {
       // 4. 处理 Markdown 文件
-      const markdownContent = await fetchFileContentByUrl(urlWithCacheBuster);
+      // 使用原始 URL，不添加时间戳参数（MinIO presigned URL 可能不支持额外参数）
+      const markdownContent = await fetchFileContentByUrl(fileUrl);
       const htmlContent = mdParser.render(markdownContent || '');
       editor.value.commands.setContent(htmlContent, false);
       nextTick(() => {
-        editor.value.commands.focus('end');
+        safeEditorFocus(() => {
+          editor.value.commands.focus('end');
+        });
       });
     }
   } catch (error) {
     console.error('Failed to load note content:', error);
-    showError('加载笔记内容失败，请检查文件链接。');
-    // 如果加载失败，清空编辑器/预览区
-    editor.value?.commands.setContent('', false);
+    // 只有在当前选中的笔记确实是这个笔记时才显示错误
+    if (currentNote.value && currentNote.value.id === note.id) {
+      showError('加载笔记内容失败，请检查文件链接。');
+      // 如果加载失败，清空编辑器/预览区
+      editor.value?.commands.setContent('', false);
+    }
+  } finally {
+    // 清除加载状态
+    isSelectingNote.value = false;
   }
 };
 
