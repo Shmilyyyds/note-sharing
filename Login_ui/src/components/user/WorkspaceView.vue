@@ -560,7 +560,7 @@ const confirmDialog = async () => {
 
 <style scoped>
 /* 样式代码保持不变 */
-.workspace-page { display: flex; height: 100vh; background: #fff; }
+.workspace-page { display: flex; height: 100vh; background: transparent; }
 .sidebar { width: 260px; border-right: 1px solid #eee; padding: 16px; user-select: none; }
 .sidebar-header { display: flex; justify-content: space-between; align-items: center; }
 .add-btn { width: 32px; height: 32px; font-size: 20px; border: none; background: #2d5cf6; color: #fff; border-radius: 4px; cursor: pointer; }

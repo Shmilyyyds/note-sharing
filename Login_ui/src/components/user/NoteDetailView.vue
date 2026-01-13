@@ -875,10 +875,12 @@ onMounted(() => {
 
 .note-detail-page {
   min-height: 100vh;
-  background: var(--surface-muted);
+  background: transparent;
   padding: 20px;
   display: flex;
   justify-content: center;
+  position: relative;
+  z-index: 1;
 }
 
 .detail-layout {
@@ -887,6 +889,8 @@ onMounted(() => {
   gap: 16px;
   width: 100%;
   max-width: 1200px;
+  position: relative;
+  z-index: 1;
 }
 
 .detail-container {
@@ -1801,6 +1805,8 @@ onMounted(() => {
   justify-content: center;
   min-height: 400px;
   gap: 16px;
+  position: relative;
+  z-index: 1;
 }
 
 .loader {

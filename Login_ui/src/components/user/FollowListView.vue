@@ -635,7 +635,7 @@ onMounted(() => {
 .follow-list-page {
   min-height: 100vh;
   padding: 48px 20px 80px;
-  background: var(--surface-muted, #f8faf9);
+  background: transparent;
   display: flex;
   justify-content: center;
 }

@@ -1016,10 +1016,12 @@ onBeforeUnmount(() => {
 .main-shell {
   min-height: 100vh;
   padding: 0;
-  background: #f6f6f6;
+  background: transparent;
   display: flex;
   flex-direction: column;
   gap: 0;
+  position: relative;
+  z-index: 1;
 }
 
 .main-header {
@@ -1097,13 +1099,20 @@ onBeforeUnmount(() => {
   flex: 1;
   max-width: 480px;
   height: 38px;
-  background: #f6f6f6;
+  background: var(--surface-base);
   border-radius: 8px;
   overflow: hidden;
   align-items: center;
   margin-left: auto;
   margin-right: 30px;
-  border: 1px solid #e2e2e2;
+  border: 1px solid var(--line-soft);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: box-shadow 0.2s, border-color 0.2s;
+}
+
+.search-container:focus-within {
+  border-color: var(--brand-primary);
+  box-shadow: 0 2px 6px rgba(34, 191, 163, 0.12);
 }
 
 .search-input {
