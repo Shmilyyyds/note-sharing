@@ -206,6 +206,23 @@
       </aside>
     </div>
 
+    <!-- 删除评论确认对话框 -->
+    <div v-if="deleteCommentDialog.visible" class="modal-overlay" @click.self="cancelDeleteComment">
+      <div class="delete-dialog rename-dialog">
+        <h4 class="modal-title">删除评论</h4>
+        <p class="delete-message">
+          确定要删除这条评论吗？删除后无法恢复。
+        </p>
+
+        <div class="modal-actions">
+          <button class="modal-cancel-btn" @click="cancelDeleteComment">取消</button>
+          <button class="modal-confirm-btn delete-confirm-btn" @click="confirmDeleteComment">
+            确定删除
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- 消息提示组件 -->
     <MessageToast
       v-if="showToast"
@@ -300,6 +317,12 @@ const replyingTo = ref(null)        // 当前正在回复的 comment._id
 const replyContent = ref('')
 const replyTarget = ref(null)       // 当前正在回复的整条评论对象
 const commentActionLoading = ref({})
+
+// 删除评论对话框状态
+const deleteCommentDialog = ref({
+  visible: false,
+  comment: null
+})
 
 // 作者相关状态
 const authorUserId = ref(null) // 作者的userId
@@ -908,10 +931,8 @@ const countCommentAndReplies = (comment) => {
   return count
 }
 
-// 删除评论
-const handleDeleteComment = async (comment) => {
-  if (!confirm('确定要删除这条评论吗？')) return
-
+// 显示删除评论确认对话框
+const showDeleteCommentDialog = (comment) => {
   const userId = getCurrentUserId()
   if (!userId) {
     console.warn('用户未登录，无法删除评论')
@@ -925,6 +946,25 @@ const handleDeleteComment = async (comment) => {
     return
   }
 
+  deleteCommentDialog.value = {
+    visible: true,
+    comment: comment
+  }
+}
+
+// 取消删除评论
+const cancelDeleteComment = () => {
+  deleteCommentDialog.value = {
+    visible: false,
+    comment: null
+  }
+}
+
+// 确认删除评论
+const confirmDeleteComment = async () => {
+  const comment = deleteCommentDialog.value.comment
+  if (!comment) return
+
   if (commentActionLoading.value[comment._id]) return
 
   commentActionLoading.value[comment._id] = true
@@ -933,6 +973,9 @@ const handleDeleteComment = async (comment) => {
     const deleteCount = countCommentAndReplies(comment)
     
     await deleteRemark(comment._id)
+    
+    // 关闭对话框
+    cancelDeleteComment()
     
     // 重新获取评论列表
     await fetchComments(noteDetail.value.noteId)
@@ -946,12 +989,19 @@ const handleDeleteComment = async (comment) => {
         comments: stats.value.comments
       })
     }
+    
+    showSuccess('删除成功')
   } catch (err) {
     console.error('删除评论失败:', err)
     showError('删除失败，请稍后重试')
   } finally {
     commentActionLoading.value[comment._id] = false
   }
+}
+
+// 删除评论（显示确认对话框）
+const handleDeleteComment = (comment) => {
+  showDeleteCommentDialog(comment)
 }
 
 // WebSocket 连接和订阅
@@ -2086,6 +2136,93 @@ onUnmounted(() => {
 
 .back-button:hover {
   background: #006EDC;
+}
+
+/* 删除评论确认对话框样式 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.delete-dialog {
+  background: white;
+  padding: 30px;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  width: 90%;
+  max-width: 450px;
+}
+
+.modal-title {
+  margin-top: 0;
+  margin-bottom: 25px;
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.delete-message {
+  margin-bottom: 25px;
+  font-size: 15px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.modal-cancel-btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 15px;
+  background: #f0f0f0;
+  color: #666;
+  transition: background-color 0.2s;
+}
+
+.modal-cancel-btn:hover {
+  background: #e0e0e0;
+}
+
+.modal-confirm-btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 15px;
+  background: var(--brand-primary);
+  color: white;
+  transition: background-color 0.2s;
+}
+
+.modal-confirm-btn:hover:not(:disabled) {
+  background: #006EDC;
+}
+
+.modal-confirm-btn:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+.delete-confirm-btn {
+  background: #dc3545;
+}
+
+.delete-confirm-btn:hover:not(:disabled) {
+  background: #c82333;
 }
 
 @media (max-width: 768px) {
