@@ -1035,6 +1035,13 @@ onBeforeUnmount(() => {
   box-shadow: none;
   border-radius: 0;
   border: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  z-index: 1000;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 /* --- Logo / Nav Links (保持不变) --- */
@@ -1291,10 +1298,11 @@ onBeforeUnmount(() => {
 .main-content {
   flex: 1;
   padding: 20px;
+  margin-top: 52px;
 }
 
 .notification-panel {
-  position: absolute;
+  position: fixed;
   top: 64px;
   right: 32px;
   width: 360px;
@@ -1415,9 +1423,14 @@ onBeforeUnmount(() => {
   .main-header {
     flex-wrap: wrap;
     height: auto;
+    min-height: 52px;
     padding: 10px 20px;
     gap: 15px;
     justify-content: space-between;
+  }
+
+  .main-content {
+    margin-top: 100px; /* 移动端导航栏高度更大，需要更多空间 */
   }
 
   .brand-logo-block {

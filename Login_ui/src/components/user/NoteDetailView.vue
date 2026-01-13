@@ -1745,7 +1745,7 @@ onMounted(() => {
 
 .action-sidebar {
   position: sticky;
-  top: 80px;
+  top: 72px; /* 导航栏高度52px + 20px间距 */
   display: flex;
   flex-direction: column;
   gap: 12px;
