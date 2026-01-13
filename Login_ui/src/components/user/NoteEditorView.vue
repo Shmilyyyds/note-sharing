@@ -399,6 +399,23 @@ const renameInputRef = ref(null);
 // 消息提示
 const { showToast, toastMessage, toastType, toastDuration, showSuccess, showError, showInfo, hideMessage } = useMessage()
 
+// 辅助函数：检查是否是重名错误
+const isDuplicateTitleError = (error) => {
+  const responseData = error.response?.data;
+  // 检查是否是后端返回的 StandardResponse 格式的重名错误
+  if (responseData && typeof responseData === 'object') {
+    // 后端返回格式：{ code: 400, message: "同一笔记本下已存在同名笔记", data: null }
+    if (responseData.code === 400 && responseData.message === '同一笔记本下已存在同名笔记') {
+      return true;
+    }
+    // 兼容其他可能的错误格式
+    if (responseData.message && responseData.message.includes('已存在同名笔记')) {
+      return true;
+    }
+  }
+  return false;
+}
+
 // 1. 初始化 Markdown 解析器 (MD -> HTML)
 const mdParser = new MarkdownIt({
   html: true, // 允许 HTML 标签
@@ -1021,17 +1038,29 @@ const handleAction = async (action, noteId) => {
       const newTitle = await showRenameDialog(noteId, note.title);
 
       if (newTitle && newTitle !== note.title) {
-        // 【API调用点 D】: 重命名笔记 (PUT /noting/notes/rename)
-        const updateResult = await renameNote(noteId, newTitle);
-        note.title = newTitle;
-        note.updatedAt = updateResult.updatedAt;
+        try {
+          // 【API调用点 D】: 重命名笔记 (PUT /noting/notes/rename)
+          const updateResult = await renameNote(noteId, newTitle);
+          note.title = newTitle;
+          note.updatedAt = updateResult.updatedAt;
 
-        if (currentNote.value && currentNote.value.id === noteId) {
-          currentTitle.value = newTitle;
-          currentNote.value.updatedAt = updateResult.updatedAt;
+          if (currentNote.value && currentNote.value.id === noteId) {
+            currentTitle.value = newTitle;
+            currentNote.value.updatedAt = updateResult.updatedAt;
+          }
+
+          showSuccess(`笔记已重命名为 "${newTitle}"`);
+        } catch (error) {
+          if (isDuplicateTitleError(error)) {
+            // 重名错误：显示友好的业务提示
+            showError('该笔记名称已存在，请使用其他名称', 3000);
+          } else {
+            // 其他系统错误：显示技术性错误信息
+            const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message || '重命名失败，请稍后重试。';
+            showError('重命名失败：' + errorMessage);
+          }
+          console.error('Error renaming note:', error);
         }
-
-        showSuccess(`笔记已重命名为 "${newTitle}"`);
       }
     } else if (action === '移动到') {
       const targetNotebookId = await showMoveToDialog(noteId, note.title, props.notebookList);
@@ -1139,6 +1168,13 @@ const handleNewNoteFromModal = async () => {
     showError('笔记名不能为空！');
     return;
   }
+  
+  // 验证 notebookId 是否存在
+  if (!props.notebookId) {
+    showError('笔记本ID不存在，无法创建笔记！');
+    return;
+  }
+  
   const type = newNoteType.value === 'online' ? 'md' : 'pdf';
   showNewNoteModal.value = false;
   newNoteType.value = 'online';
@@ -1171,7 +1207,14 @@ const handleNewNoteFromModal = async () => {
       uploadFileInput.value.click();
     }
   } catch (error) {
-    showError('创建笔记失败。');
+    if (isDuplicateTitleError(error)) {
+      // 重名错误：显示友好的业务提示
+      showError('该笔记名称已存在，请使用其他名称', 3000);
+    } else {
+      // 其他系统错误：显示技术性错误信息
+      const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message || '创建笔记失败，请稍后重试。';
+      showError('创建笔记失败：' + errorMessage);
+    }
     console.error('Error creating new note:', error);
   }
 };
@@ -1179,6 +1222,12 @@ const handleNewNoteFromModal = async () => {
 const handleFileUpload = async (e) => {
   const file = e.target.files[0];
   if (!file) return;
+
+  // 验证 notebookId 是否存在
+  if (!props.notebookId) {
+    showError('笔记本ID不存在，无法上传文件！');
+    return;
+  }
 
   const titleToUse = newNoteTitle.value.trim() || file.name.split('.').slice(0, -1).join('.');
 
@@ -1204,7 +1253,14 @@ const handleFileUpload = async (e) => {
     newNoteTitle.value = fileNote.title;
 
   } catch (error) {
-    showError('文件上传和笔记创建失败。');
+    if (isDuplicateTitleError(error)) {
+      // 重名错误：显示友好的业务提示
+      showError('该笔记名称已存在，请使用其他名称', 3000);
+    } else {
+      // 其他系统错误：显示技术性错误信息
+      const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message || '文件上传和笔记创建失败，请稍后重试。';
+      showError('文件上传和笔记创建失败：' + errorMessage);
+    }
     console.error('Error uploading file/creating note:', error);
   }
 };
@@ -1221,8 +1277,18 @@ const updateCurrentNoteTitle = async () => {
     currentNote.value.title = newTitle;
     currentNote.value.updatedAt = updateResult.updatedAt;
   } catch (error) {
-    console.error('Error updating title:', error);
+    // 恢复原标题
     currentTitle.value = currentNote.value.title;
+    
+    if (isDuplicateTitleError(error)) {
+      // 重名错误：显示友好的业务提示
+      showError('该笔记名称已存在，请使用其他名称', 3000);
+    } else {
+      // 其他系统错误：显示技术性错误信息
+      const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message || '重命名失败，请稍后重试。';
+      showError('重命名失败：' + errorMessage);
+    }
+    console.error('Error updating title:', error);
   }
 };
 

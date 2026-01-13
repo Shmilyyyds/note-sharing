@@ -2,7 +2,7 @@
   <div class="main-shell">
     <header class="main-header app-layout">
       <div class="brand-logo-block">
-        <span class="brand-logo-text">NoteFlow</span>
+        <span class="brand-logo-text">Folio</span>
       </div>
 
       <nav class="main-nav-links" aria-label="主要导航">
@@ -1016,10 +1016,12 @@ onBeforeUnmount(() => {
 .main-shell {
   min-height: 100vh;
   padding: 0;
-  background: #f6f6f6;
+  background: transparent;
   display: flex;
   flex-direction: column;
   gap: 0;
+  position: relative;
+  z-index: 1;
 }
 
 .main-header {
@@ -1043,11 +1045,20 @@ onBeforeUnmount(() => {
 
 .brand-logo-text {
   font-family: 'PingFang SC', 'Helvetica Neue', Arial, sans-serif;
-  font-size: 26px;
-  font-weight: bold;
-  color: #007FFF;
+  font-size: 22px;
+  font-weight: 500;
+  color: #0a0a0a;
+  letter-spacing: 1px;
+  text-transform: uppercase;
   user-select: none;
   cursor: pointer;
+  transition: color 0.3s ease, opacity 0.3s ease;
+  opacity: 0.9;
+}
+
+.brand-logo-text:hover {
+  color: #007FFF;
+  opacity: 1;
 }
 
 .main-nav-links {
@@ -1097,13 +1108,20 @@ onBeforeUnmount(() => {
   flex: 1;
   max-width: 480px;
   height: 38px;
-  background: #f6f6f6;
+  background: var(--surface-base);
   border-radius: 8px;
   overflow: hidden;
   align-items: center;
   margin-left: auto;
   margin-right: 30px;
-  border: 1px solid #e2e2e2;
+  border: 1px solid var(--line-soft);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: box-shadow 0.2s, border-color 0.2s;
+}
+
+.search-container:focus-within {
+  border-color: var(--brand-primary);
+  box-shadow: 0 2px 6px rgba(34, 191, 163, 0.12);
 }
 
 .search-input {

@@ -17,10 +17,12 @@ import AdminCommentManagement from '../components/admin/AdminCommentManagement.v
 <style scoped>
 .admin-page {
   padding: 32px clamp(20px, 4vw, 48px) 80px;
-  background: var(--surface-muted);
+  background: transparent;
   display: flex;
   flex-direction: column;
   gap: 28px;
+  position: relative;
+  z-index: 1;
 }
 
 @media (max-width: 640px) {

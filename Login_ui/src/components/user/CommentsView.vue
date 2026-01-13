@@ -215,6 +215,7 @@ onMounted(() => {
 
 <style scoped>
 .comments-page {
+  background: transparent;
   display: flex;
   flex-direction: column;
   gap: 28px;

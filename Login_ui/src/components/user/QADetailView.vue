@@ -802,7 +802,7 @@ onMounted(() => {
 
 .qa-detail-page {
   min-height: 100vh;
-  background: var(--surface-muted);
+  background: transparent;
   padding: 20px 24px 100px;
 }
 

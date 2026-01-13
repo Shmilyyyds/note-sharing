@@ -1,5 +1,6 @@
 package com.project.login.exception;
 
+import com.project.login.model.response.StandardResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -13,7 +14,18 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    // 处理所有业务异常
+    /**
+     * 笔记标题重复的业务异常：返回统一的 StandardResponse，方便前端区分
+     */
+    @ExceptionHandler(DuplicateNoteTitleException.class)
+    public ResponseEntity<StandardResponse<Void>> handleDuplicateNoteTitle(DuplicateNoteTitleException e) {
+        // 这里使用 400 + code=400 表示业务错误，如需更细粒度可以扩展 code
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(StandardResponse.error(e.getMessage()));
+    }
+
+    // 处理所有其他运行时异常（系统错误）
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<?> handleRuntime(RuntimeException e) {
         return ResponseEntity
@@ -48,7 +60,7 @@ public class GlobalExceptionHandler {
     // 处理参数类型不匹配异常
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<?> handleTypeMismatch(MethodArgumentTypeMismatchException e) {
-        String message = "参数类型不匹配: " + e.getName() + " 应该是 " + 
+        String message = "参数类型不匹配: " + e.getName() + " 应该是 " +
                 (e.getRequiredType() != null ? e.getRequiredType().getSimpleName() : "未知类型");
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)

@@ -444,7 +444,7 @@ onMounted(() => {
 .recommend-page {
   min-height: 100vh;
   padding: 20px 24px 100px;
-  background: var(--surface-muted);
+  background: transparent;
 }
 
 .recommend-panel {

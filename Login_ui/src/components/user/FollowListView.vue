@@ -155,6 +155,17 @@
                 <div class="follow-time">{{ formatTime(item.followTime) }}</div>
               </div>
               <div class="user-actions" @click.stop>
+                <!-- 关注列表中的取关按钮 -->
+                <button 
+                  v-if="activeTab === 'followings' && item.userId !== currentUserId && props.userId === currentUserId"
+                  class="follow-btn following"
+                  @click="toggleFollow(item.userId)"
+                  :disabled="followLoading[item.userId]"
+                >
+                  <span v-if="followLoading[item.userId]">处理中...</span>
+                  <span v-else>取关</span>
+                </button>
+                <!-- 粉丝列表中的关注按钮 -->
                 <button 
                   v-if="activeTab === 'followers' && item.userId !== currentUserId"
                   class="follow-btn"
@@ -298,31 +309,31 @@ const loadData = async () => {
   error.value = ''
 
   try {
-    if (activeTab.value === 'followings') {
-      const data = await getFollowings(userId)
-      followingsList.value = data?.followings || []
-      
-      // 获取每个用户的详细信息（包括用户名）
-      await loadUserInfos(followingsList.value)
-      
-      // 如果是查看自己的关注列表，检查每个用户的互相关注状态
-      const currentId = Number(currentUserId.value)
-      if (currentId && userId === currentId) {
+    // 同时获取关注列表和粉丝列表，保证两个 tab 的数量和数据都是最新的
+    const [followingsData, followersData] = await Promise.all([
+      getFollowings(userId),
+      getFollowers(userId)
+    ])
+
+    followingsList.value = followingsData?.followings || []
+    followersList.value = followersData?.followers || []
+
+    // 统一加载两个列表中出现过的用户信息，已加载的会自动跳过
+    await loadUserInfos([
+      ...followingsList.value,
+      ...followersList.value
+    ])
+
+    // 根据当前登录用户，检查关注状态 & 互相关注状态
+    const currentId = Number(currentUserId.value)
+    if (currentId && currentId > 0) {
+      // 对自己的页面：两个列表都检查
+      if (userId === currentId) {
         await checkFollowStatus(followingsList.value)
-      } else if (currentId) {
-        // 查看别人的关注列表时，也检查互相关注状态（如果当前用户也关注了这些人）
-        // 这样可以显示"互相关注"标识
+        await checkFollowStatus(followersList.value)
+      } else {
+        // 查看别人的页面时，同样检查当前用户与这些人的关系，用于“已关注/互相关注”展示
         await checkFollowStatus(followingsList.value)
-      }
-    } else {
-      const data = await getFollowers(userId)
-      followersList.value = data?.followers || []
-      
-      // 获取每个用户的详细信息（包括用户名）
-      await loadUserInfos(followersList.value)
-      
-      // 检查每个粉丝的关注状态（当前用户是否关注了他们）
-      if (currentUserId.value) {
         await checkFollowStatus(followersList.value)
       }
     }
@@ -516,10 +527,10 @@ const toggleFollow = async (targetUserId) => {
           }
         }
       }
-      
-      // 如果在"关注"标签页，需要重新加载数据以更新列表（如果新关注的用户也在关注列表中）
-      // 但通常新关注的用户不会立即出现在关注列表中，所以这里不需要特殊处理
     }
+
+    // 无论关注还是取关，操作成功后重新加载当前列表，确保数量和状态实时更新
+    await loadData()
   } catch (err) {
     const errorMsg = err.message || err.response?.data?.message || '操作失败，请稍后重试'
     showError(errorMsg)
@@ -624,7 +635,7 @@ onMounted(() => {
 .follow-list-page {
   min-height: 100vh;
   padding: 48px 20px 80px;
-  background: var(--surface-muted, #f8faf9);
+  background: transparent;
   display: flex;
   justify-content: center;
 }

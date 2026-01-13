@@ -63,11 +63,8 @@ export const createNote = (meta, file) => {
     const formData = createFormData(metaJson, file);
 
     // 【API调用点 G/H】
-    return service.post('/noting/notes/create', formData, {
-        headers: {
-            'Content-Type': 'multipart/form-data'
-        }
-    }).then(res => res.data.data);
+    // 注意：不要手动设置 Content-Type，让浏览器自动设置（包含 boundary）
+    return service.post('/noting/notes/create', formData).then(res => res.data.data);
 };
 
 /**
@@ -79,11 +76,8 @@ export const uploadNote = (meta, file) => {
     const formData = createFormData(metaJson, file);
 
     // 【API调用点 G/H】
-    return service.post('/noting/notes/files', formData, {
-        headers: {
-            'Content-Type': 'multipart/form-data'
-        }
-    }).then(res => res.data.data);
+    // 注意：不要手动设置 Content-Type，让浏览器自动设置（包含 boundary）
+    return service.post('/noting/notes/files', formData).then(res => res.data.data);
 };
 
 /**
@@ -95,11 +89,8 @@ export const updateNote = (meta, file = null) => {
     const formData = createFormData(metaJson, file);
 
     // 【API调用点 B/D/I】
-    return service.put('/noting/notes/update', formData, {
-        headers: {
-            'Content-Type': 'multipart/form-data'
-        }
-    }).then(res => res.data.data);
+    // 注意：不要手动设置 Content-Type，让浏览器自动设置（包含 boundary）
+    return service.put('/noting/notes/update', formData).then(res => res.data.data);
 };
 
 /**
@@ -151,11 +142,8 @@ export const publishNote = (meta, file) => {
     const metaJson = formatMeta(meta);
     const formData = createFormData(metaJson, file);
 
-    return service.post('/noting/notes/publish', formData, {
-        headers: {
-            'Content-Type': 'multipart/form-data'
-        }
-    }).then(res => res.data.data);
+    // 注意：不要手动设置 Content-Type，让浏览器自动设置（包含 boundary）
+    return service.post('/noting/notes/publish', formData).then(res => res.data.data);
 };
 
 // =========================================================
@@ -171,11 +159,8 @@ export const uploadImage = (imageFile) => {
     formData.append('file', imageFile);
 
     // 【API调用点 J】
-    return service.post('/noting/notes/image', formData, {
-        headers: {
-            'Content-Type': 'multipart/form-data'
-        }
-    }).then(res => res.data.data);
+    // 注意：不要手动设置 Content-Type，让浏览器自动设置（包含 boundary）
+    return service.post('/noting/notes/image', formData).then(res => res.data.data);
 };
 
 /**
