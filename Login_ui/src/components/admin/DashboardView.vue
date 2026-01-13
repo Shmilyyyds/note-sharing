@@ -28,6 +28,14 @@
       </div>
       
       <div class="stat-card">
+        <div class="stat-icon">❓</div>
+        <div class="stat-content">
+          <div class="stat-value">{{ questionCount }}</div>
+          <div class="stat-label">问题总数</div>
+        </div>
+      </div>
+      
+      <div class="stat-card">
         <div class="stat-icon">⚠️</div>
         <div class="stat-content">
           <div class="stat-value">{{ pendingModerationCount }}</div>
@@ -40,11 +48,12 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
-import { getOnlineUsers, getNoteCount, getRemarkCount, getPendingNotes } from '../../api/admin'
+import { getOnlineUsers, getNoteCount, getRemarkCount, getPendingNotes, getQuestionCount } from '../../api/admin'
 
 const onlineCount = ref(0)
 const noteCount = ref(0)
 const remarkCount = ref(0)
+const questionCount = ref(0)
 const pendingModerationCount = ref(0)
 
 const loadStats = async () => {
@@ -74,14 +83,16 @@ const loadStats = async () => {
     onlineCount.value = usersList.length
     
     // 并行获取其他统计数据
-    const [noteRes, remarkRes, pendingNotesRes] = await Promise.all([
+    const [noteRes, remarkRes, questionRes, pendingNotesRes] = await Promise.all([
       getNoteCount(),
       getRemarkCount(),
+      getQuestionCount(),
       getPendingNotes()
     ])
     
     noteCount.value = noteRes?.data?.noteCount || noteRes?.noteCount || 0
     remarkCount.value = remarkRes?.data?.remarkCount || remarkRes?.remarkCount || 0
+    questionCount.value = questionRes?.data?.questionCount || questionRes?.questionCount || 0
     
     // 待审查内容：只统计待审核的笔记（未处理的）
     const pendingNotesList = pendingNotesRes?.data || pendingNotesRes || []
