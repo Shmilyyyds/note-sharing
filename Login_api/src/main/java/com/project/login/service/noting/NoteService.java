@@ -1,6 +1,7 @@
 package com.project.login.service.noting;
 
 import com.project.login.convert.NoteConvert;
+import com.project.login.exception.DuplicateNoteTitleException;
 import com.project.login.mapper.*;
 import com.project.login.model.dataobject.*;
 import com.project.login.model.dto.note.*;
@@ -62,7 +63,7 @@ public class NoteService {
                 dto.getMeta().getTitle()
         );
         if (duplicated != null) {
-            throw new RuntimeException("同一笔记本下已存在同名笔记");
+            throw new DuplicateNoteTitleException("同一笔记本下已存在同名笔记");
         }
 
         // 上传文件并获取文件名和URL
@@ -191,7 +192,7 @@ public class NoteService {
                 dto.getMeta().getTitle()
         );
         if (duplicated != null) {
-            throw new RuntimeException("同一笔记本下已存在同名笔记");
+            throw new DuplicateNoteTitleException("同一笔记本下已存在同名笔记");
         }
 
         // 上传文件并获取文件名和URL
@@ -276,7 +277,7 @@ public class NoteService {
             );
             // 如果找到了同名笔记，且不是当前笔记本身，则不允许重命名
             if (duplicated != null && !duplicated.getId().equals(note.getId())) {
-                throw new RuntimeException("同一笔记本下已存在同名笔记");
+                throw new DuplicateNoteTitleException("同一笔记本下已存在同名笔记");
             }
         }
         
