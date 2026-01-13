@@ -61,6 +61,14 @@ spring:
   data:
     mongodb:
       uri: mongodb://localhost:27017/note_db
+    elasticsearch:
+      repositories:
+        enabled: true
+      # 禁用自动索引创建，避免启动时连接失败
+      auto-index: false
+      # 连接超时设置
+      connection-timeout: 5s
+      socket-timeout: 60s
 
   flyway:
     enabled: true

@@ -1139,6 +1139,13 @@ const handleNewNoteFromModal = async () => {
     showError('笔记名不能为空！');
     return;
   }
+  
+  // 验证 notebookId 是否存在
+  if (!props.notebookId) {
+    showError('笔记本ID不存在，无法创建笔记！');
+    return;
+  }
+  
   const type = newNoteType.value === 'online' ? 'md' : 'pdf';
   showNewNoteModal.value = false;
   newNoteType.value = 'online';
@@ -1171,7 +1178,8 @@ const handleNewNoteFromModal = async () => {
       uploadFileInput.value.click();
     }
   } catch (error) {
-    showError('创建笔记失败。');
+    const errorMessage = error.response?.data?.message || error.message || '创建笔记失败，请稍后重试。';
+    showError('创建笔记失败：' + errorMessage);
     console.error('Error creating new note:', error);
   }
 };
@@ -1179,6 +1187,12 @@ const handleNewNoteFromModal = async () => {
 const handleFileUpload = async (e) => {
   const file = e.target.files[0];
   if (!file) return;
+
+  // 验证 notebookId 是否存在
+  if (!props.notebookId) {
+    showError('笔记本ID不存在，无法上传文件！');
+    return;
+  }
 
   const titleToUse = newNoteTitle.value.trim() || file.name.split('.').slice(0, -1).join('.');
 
@@ -1204,7 +1218,8 @@ const handleFileUpload = async (e) => {
     newNoteTitle.value = fileNote.title;
 
   } catch (error) {
-    showError('文件上传和笔记创建失败。');
+    const errorMessage = error.response?.data?.message || error.message || '文件上传和笔记创建失败，请稍后重试。';
+    showError('文件上传和笔记创建失败：' + errorMessage);
     console.error('Error uploading file/creating note:', error);
   }
 };
