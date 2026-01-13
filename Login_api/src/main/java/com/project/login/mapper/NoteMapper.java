@@ -43,6 +43,21 @@ public interface NoteMapper {
     @ResultMap("NoteBaseResultMap")
     List<NoteDO> selectByNotebookId(Long notebookId);
 
+    /**
+     * 在同一笔记本下，根据标题查找笔记
+     * 用于保证「同一用户的同一笔记空间下同一笔记本中」笔记标题唯一
+     */
+    @Select("""
+            SELECT id, title, filename, file_type, notebook_id, created_at, updated_at
+            FROM notes
+            WHERE notebook_id = #{notebookId}
+              AND title = #{title}
+            LIMIT 1
+            """)
+    @ResultMap("NoteBaseResultMap")
+    NoteDO selectByNotebookIdAndTitle(@Param("notebookId") Long notebookId,
+                                      @Param("title") String title);
+
     // --- UPDATE ---
 
     @Update("""

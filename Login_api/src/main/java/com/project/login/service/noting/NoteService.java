@@ -54,6 +54,17 @@ public class NoteService {
             throw new RuntimeException("笔记本不存在");
         }
 
+        // 保证：同一用户的同一笔记空间下，同一笔记本中笔记标题不重复
+        // 由于 notebook 归属于某个 space，而 space 又归属于某个 user，
+        // 因此在同一 notebook 下保证 title 唯一即可满足业务约束
+        NoteDO duplicated = noteMapper.selectByNotebookIdAndTitle(
+                dto.getMeta().getNotebookId(),
+                dto.getMeta().getTitle()
+        );
+        if (duplicated != null) {
+            throw new RuntimeException("同一笔记本下已存在同名笔记");
+        }
+
         // 上传文件并获取文件名和URL
         MultipartFile file = dto.getFile();
         String contentSummary = contentSummaryService.extractContentSummary(file);
@@ -174,6 +185,15 @@ public class NoteService {
             throw new RuntimeException("笔记本不存在");
         }
 
+        // 与 createNote 一致：防止同一笔记本下创建重名笔记
+        NoteDO duplicated = noteMapper.selectByNotebookIdAndTitle(
+                dto.getMeta().getNotebookId(),
+                dto.getMeta().getTitle()
+        );
+        if (duplicated != null) {
+            throw new RuntimeException("同一笔记本下已存在同名笔记");
+        }
+
         // 上传文件并获取文件名和URL
         MultipartFile file = dto.getFile();
         String contentSummary = contentSummaryService.extractContentSummary(file);
@@ -246,7 +266,21 @@ public class NoteService {
         // 1. 查找
         NoteDO note = noteMapper.selectById(dto.getId());
         if (note == null) throw new RuntimeException("笔记不存在");
-        // 2. 更新名称
+        
+        // 2. 检查重命名后的名称是否在同一笔记本下已存在（排除当前笔记本身）
+        // 如果新名称和旧名称相同，则允许（不需要检查）
+        if (!note.getTitle().equals(dto.getNewName())) {
+            NoteDO duplicated = noteMapper.selectByNotebookIdAndTitle(
+                    note.getNotebookId(),
+                    dto.getNewName()
+            );
+            // 如果找到了同名笔记，且不是当前笔记本身，则不允许重命名
+            if (duplicated != null && !duplicated.getId().equals(note.getId())) {
+                throw new RuntimeException("同一笔记本下已存在同名笔记");
+            }
+        }
+        
+        // 3. 更新名称
         note.setTitle(dto.getNewName());
         note.setUpdatedAt(LocalDateTime.now());
         noteMapper.update(note);
