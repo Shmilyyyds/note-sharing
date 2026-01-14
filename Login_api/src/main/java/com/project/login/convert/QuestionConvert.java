@@ -1,17 +1,23 @@
 package com.project.login.convert;
 
+import com.project.login.mapper.UserMapper;
 import com.project.login.model.dataobject.QuestionDO;
-import com.project.login.model.vo.*;
 import com.project.login.model.vo.qa.AnswerVO;
 import com.project.login.model.vo.qa.CommentVO;
 import com.project.login.model.vo.qa.QuestionVO;
 import com.project.login.model.vo.qa.ReplyVO;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.stream.Collectors;
 
+@Slf4j
 @Component
+@RequiredArgsConstructor
 public class QuestionConvert {
+    
+    private final UserMapper userMapper;
 
     public QuestionVO toQuestionVO(QuestionDO doObj) {
         if (doObj == null) return null;
@@ -19,6 +25,14 @@ public class QuestionConvert {
         QuestionVO vo = new QuestionVO();
         vo.setQuestionId(doObj.getQuestionId());
         vo.setAuthorId(doObj.getAuthorId());
+        // 查询提问者用户名
+        try {
+            String authorName = userMapper.selectNameById(doObj.getAuthorId());
+            vo.setAuthorName(authorName != null ? authorName : "用户 #" + doObj.getAuthorId());
+        } catch (Exception e) {
+            log.warn("获取提问者用户名失败 authorId={}", doObj.getAuthorId(), e);
+            vo.setAuthorName("用户 #" + doObj.getAuthorId());
+        }
         vo.setTitle(doObj.getTitle());
         vo.setContent(doObj.getContent());
         vo.setTags(doObj.getTags());
@@ -26,6 +40,9 @@ public class QuestionConvert {
 
         vo.setLikeCount(doObj.getLikes().size());
         vo.setFavoriteCount(doObj.getFavorites().size());
+        
+        // 设置回答数量
+        vo.setAnswerCount(doObj.getAnswers() != null ? doObj.getAnswers().size() : 0);
 
         vo.setAnswers(
                 doObj.getAnswers().stream()
@@ -40,6 +57,14 @@ public class QuestionConvert {
         AnswerVO vo = new AnswerVO();
         vo.setAnswerId(a.getAnswerId());
         vo.setAuthorId(a.getAuthorId());
+        // 查询回答者用户名
+        try {
+            String authorName = userMapper.selectNameById(a.getAuthorId());
+            vo.setAuthorName(authorName != null ? authorName : "用户 #" + a.getAuthorId());
+        } catch (Exception e) {
+            log.warn("获取回答者用户名失败 authorId={}", a.getAuthorId(), e);
+            vo.setAuthorName("用户 #" + a.getAuthorId());
+        }
         vo.setContent(a.getContent());
         vo.setCreatedAt(a.getCreatedAt());
         vo.setLikeCount(a.getLikes().size());
@@ -57,6 +82,14 @@ public class QuestionConvert {
         CommentVO vo = new CommentVO();
         vo.setCommentId(c.getCommentId());
         vo.setAuthorId(c.getAuthorId());
+        // 查询评论者用户名
+        try {
+            String authorName = userMapper.selectNameById(c.getAuthorId());
+            vo.setAuthorName(authorName != null ? authorName : "用户 #" + c.getAuthorId());
+        } catch (Exception e) {
+            log.warn("获取评论者用户名失败 authorId={}", c.getAuthorId(), e);
+            vo.setAuthorName("用户 #" + c.getAuthorId());
+        }
         vo.setContent(c.getContent());
         vo.setCreatedAt(c.getCreatedAt());
         vo.setLikeCount(c.getLikes().size());
@@ -74,6 +107,14 @@ public class QuestionConvert {
         ReplyVO vo = new ReplyVO();
         vo.setReplyId(r.getReplyId());
         vo.setAuthorId(r.getAuthorId());
+        // 查询回复者用户名
+        try {
+            String authorName = userMapper.selectNameById(r.getAuthorId());
+            vo.setAuthorName(authorName != null ? authorName : "用户 #" + r.getAuthorId());
+        } catch (Exception e) {
+            log.warn("获取回复者用户名失败 authorId={}", r.getAuthorId(), e);
+            vo.setAuthorName("用户 #" + r.getAuthorId());
+        }
         vo.setContent(r.getContent());
         vo.setCreatedAt(r.getCreatedAt());
         vo.setLikeCount(r.getLikes().size());

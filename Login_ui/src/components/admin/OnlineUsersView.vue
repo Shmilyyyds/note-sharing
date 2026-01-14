@@ -33,7 +33,16 @@
           <tr v-else v-for="user in onlineUsers" :key="user.id || user.userId">
             <td>{{ user.id || user.userId }}</td>
             <td>{{ user.username || '-' }}</td>
-            <td>{{ user.email || '-' }}</td>
+            <td>
+              <router-link 
+                v-if="user.email && user.studentNumber"
+                :to="`/admin/${user.studentNumber}/info?email=${encodeURIComponent(user.email)}&fromTab=online-users`"
+                class="email-link"
+              >
+                {{ user.email }}
+              </router-link>
+              <span v-else>{{ user.email || '-' }}</span>
+            </td>
             <td>{{ user.studentNumber || '-' }}</td>
             <td>{{ formatTime(user.loginTime) }}</td>
           </tr>
@@ -45,7 +54,7 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
-import { getOnlineCount, getOnlineUsers } from '../../api/admin'
+import { getOnlineUsers } from '../../api/admin'
 
 const onlineCount = ref(0)
 const onlineUsers = ref([])
@@ -54,10 +63,8 @@ const loading = ref(false)
 const loadOnlineUsers = async () => {
   loading.value = true
   try {
-    // 先获取用户列表，再获取统计（避免并行调用导致的竞态条件）
-    // 因为后端两个接口都会消费RabbitMQ队列，并行调用会导致数据不一致
+    // 获取在线用户列表，使用列表长度作为在线人数统计
     const usersRes = await getOnlineUsers()
-    const countRes = await getOnlineCount()
     
     // 处理在线用户列表 - 确保是数组类型
     let usersList = []
@@ -80,24 +87,8 @@ const loadOnlineUsers = async () => {
     // 设置用户列表
     onlineUsers.value = usersList
     
-    // 处理在线人数统计 - 优先使用实际用户列表的长度，确保一致性
-    const actualCount = usersList.length
-    const reportedCount = countRes?.data?.onlineCount ?? countRes?.onlineCount ?? 0
-    
-    // 如果统计数和实际列表长度不一致，使用实际列表长度，并记录警告
-    if (actualCount !== reportedCount) {
-      console.warn(`在线人数统计不一致: 统计数=${reportedCount}, 实际列表长度=${actualCount}`)
-      onlineCount.value = actualCount
-    } else {
-      onlineCount.value = reportedCount
-    }
-    
-    // 调试信息
-    console.log('在线用户数据:', {
-      统计人数: reportedCount,
-      实际列表长度: actualCount,
-      用户列表: usersList
-    })
+    // 使用用户列表长度作为在线人数统计
+    onlineCount.value = usersList.length
   } catch (error) {
     console.error('加载在线用户失败:', error)
     onlineUsers.value = []
@@ -165,6 +156,17 @@ onUnmounted(() => {
 .refresh-btn:hover {
   background: #f5f5f5;
   border-color: #ccc;
+}
+
+.email-link {
+  color: #007FFF;
+  text-decoration: none;
+  transition: all 0.2s;
+}
+
+.email-link:hover {
+  color: #0056b3;
+  text-decoration: underline;
 }
 
 .stats-bar {

@@ -11,6 +11,8 @@ import com.project.login.model.vo.NoteShowVO;
 import com.project.login.model.vo.NoteVO;
 import com.project.login.service.minio.MinioService;
 import com.project.login.service.notification.NotificationService;
+import com.project.login.repository.NoteRepository;
+import com.project.login.model.entity.NoteEntity;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -21,6 +23,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -36,6 +39,8 @@ public class NoteService {
     private final NoteEventPublisher eventPublisher;
     private final ContentSummaryService contentSummaryService;
     private final NotificationService notificationService;
+    private final NoteModerationMapper noteModerationMapper;
+    private final NoteRepository noteRepository;
 
     @Qualifier("noteConvert")
     private final NoteConvert convert;
@@ -108,6 +113,11 @@ public class NoteService {
         NoteDO existing = noteMapper.selectById(dto.getMeta().getId());
         if (existing == null) throw new RuntimeException("笔记不存在");
 
+        // 检查笔记是否在审核中
+        if (isNoteUnderModeration(existing.getId())) {
+            throw new RuntimeException("笔记正在审核中，无法修改");
+        }
+
         // 上传文件并获取文件名和URL
         MultipartFile file = dto.getFile();
         String contentSummary = contentSummaryService.extractContentSummary(file);
@@ -135,6 +145,11 @@ public class NoteService {
         NoteDO existing = noteMapper.selectById(dto.getNoteId());
         if (existing == null) throw new RuntimeException("笔记不存在");
 
+        // 检查笔记是否在审核中
+        if (isNoteUnderModeration(existing.getId())) {
+            throw new RuntimeException("笔记正在审核中，无法删除");
+        }
+
         minioservice.deleteFile(existing.getFilename());
 
         noteMapper.deleteById(dto.getNoteId());
@@ -155,6 +170,11 @@ public class NoteService {
 
         NoteDO note = noteMapper.selectById(dto.getNoteId());
         if (note == null) throw new RuntimeException("笔记不存在");
+
+        // 检查笔记是否在审核中
+        if (isNoteUnderModeration(note.getId())) {
+            throw new RuntimeException("笔记正在审核中，无法移动");
+        }
 
         if (notebookMapper.selectById(dto.getTargetNotebookId()) == null) {
             throw new RuntimeException("笔记本不存在");
@@ -247,6 +267,11 @@ public class NoteService {
         vo.setUrl(url);
         vo.setFileType(existing.getFileType());
         vo.setNotebookId(existing.getNotebookId());
+        // 获取 spaceId
+        if (existing.getNotebookId() != null) {
+            Long spaceId = notebookMapper.selectSpaceIdByNotebookId(existing.getNotebookId());
+            vo.setSpaceId(spaceId);
+        }
         vo.setCreatedAt(existing.getCreatedAt());
         vo.setUpdatedAt(existing.getUpdatedAt());
         return vo;
@@ -267,6 +292,11 @@ public class NoteService {
         // 1. 查找
         NoteDO note = noteMapper.selectById(dto.getId());
         if (note == null) throw new RuntimeException("笔记不存在");
+        
+        // 检查笔记是否在审核中
+        if (isNoteUnderModeration(note.getId())) {
+            throw new RuntimeException("笔记正在审核中，无法重命名");
+        }
         
         // 2. 检查重命名后的名称是否在同一笔记本下已存在（排除当前笔记本身）
         // 如果新名称和旧名称相同，则允许（不需要检查）
@@ -337,14 +367,72 @@ public class NoteService {
 
     @Transactional(readOnly = true)
     public Long getNoteCount() {
-        return noteMapper.count();
+        // 与 getAllNotes() 保持一致的逻辑：只统计已发布且未审核中的笔记
+        // 1. 先查询有note_stats记录且不在审核中的笔记
+        List<NoteDO> doList = noteMapper.selectPublished();
+        
+        if (doList.isEmpty()) {
+            return 0L;
+        }
+        
+        // 2. 批量查询 Elasticsearch，获取已发布的笔记ID列表
+        // 因为只有 publishNote 才会发送 ES 事件，所以 ES 中有记录 = 已发布
+        List<Long> publishedNoteIds;
+        try {
+            Iterable<NoteEntity> esEntities = noteRepository.findAllById(
+                    doList.stream().map(NoteDO::getId).collect(Collectors.toList())
+            );
+            publishedNoteIds = new ArrayList<>();
+            for (NoteEntity entity : esEntities) {
+                if (entity != null && entity.getId() != null) {
+                    publishedNoteIds.add(entity.getId());
+                }
+            }
+        } catch (Exception e) {
+            log.error("批量查询ES中的笔记失败", e);
+            // 如果ES查询失败，返回0（安全起见）
+            return 0L;
+        }
+        
+        // 3. 统计在 Elasticsearch 中有记录的笔记数量（已发布）
+        return (long) publishedNoteIds.size();
     }
 
     @Transactional(readOnly = true)
     public List<NoteShowVO> getAllNotes() {
-        List<NoteDO> doList = noteMapper.selectAll();
+        // 只返回已发布的笔记（有note_stats记录），排除审核中的笔记
+        List<NoteDO> doList = noteMapper.selectPublished();
+        
+        if (doList.isEmpty()) {
+            return new ArrayList<>();
+        }
+        
+        // 批量查询 Elasticsearch，获取已发布的笔记ID列表
+        // 因为只有 publishNote 才会发送 ES 事件，所以 ES 中有记录 = 已发布
+        List<Long> publishedNoteIds;
+        try {
+            Iterable<NoteEntity> esEntities = noteRepository.findAllById(
+                    doList.stream().map(NoteDO::getId).collect(Collectors.toList())
+            );
+            publishedNoteIds = new ArrayList<>();
+            for (NoteEntity entity : esEntities) {
+                if (entity != null && entity.getId() != null) {
+                    publishedNoteIds.add(entity.getId());
+                }
+            }
+        } catch (Exception e) {
+            log.error("批量查询ES中的笔记失败", e);
+            // 如果ES查询失败，返回空列表（安全起见）
+            return new ArrayList<>();
+        }
+        
+        // 过滤掉未发布的笔记：只保留在 Elasticsearch 中有记录的笔记
+        List<NoteDO> publishedList = doList.stream()
+                .filter(noteDO -> publishedNoteIds.contains(noteDO.getId()))
+                .collect(Collectors.toList());
+        
         List<NoteShowVO> voList = new ArrayList<>();
-        for (NoteDO noteDO : doList) {
+        for (NoteDO noteDO : publishedList) {
             NoteShowVO vo = new NoteShowVO();
             vo.setId(noteDO.getId());
             vo.setTitle(noteDO.getTitle());
@@ -357,9 +445,51 @@ public class NoteService {
                 String url = minioservice.getFileUrl(noteDO.getFilename());
                 vo.setUrl(url);
             }
+            // 获取作者信息（用户名和邮箱）
+            try {
+                Long bookId = noteMapper.selectNotebookIdByNoteId(noteDO.getId());
+                if (bookId != null) {
+                    Long spaceId = notebookMapper.selectSpaceIdByNotebookId(bookId);
+                    if (spaceId != null) {
+                        Long userId = notespaceMapper.selectUserIdBySpaceId(spaceId);
+                        if (userId != null) {
+                            UserDO user = userMapper.selectById(userId);
+                            if (user != null) {
+                                vo.setAuthorName(user.getUsername());
+                                vo.setAuthorEmail(user.getEmail());
+                            }
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                // 如果获取作者信息失败，记录日志但不影响主流程
+                log.warn("获取笔记{}的作者信息失败", noteDO.getId(), e);
+            }
             voList.add(vo);
         }
         return voList;
+    }
+
+    /**
+     * 检查笔记是否在审核中
+     * @param noteId 笔记ID
+     * @return true=在审核中，false=不在审核中
+     */
+    private boolean isNoteUnderModeration(Long noteId) {
+        try {
+            // 直接使用Mapper查询，避免循环依赖
+            List<com.project.login.model.dataobject.NoteModerationDO> moderationList = noteModerationMapper.selectByNoteId(noteId);
+            if (moderationList == null || moderationList.isEmpty()) {
+                return false;
+            }
+            // 如果存在未处理的审核记录（status=FLAGGED且isHandled=false），说明笔记在审核中
+            return moderationList.stream()
+                    .anyMatch(m -> "FLAGGED".equals(m.getStatus()) && Boolean.FALSE.equals(m.getIsHandled()));
+        } catch (Exception e) {
+            log.warn("检查笔记审核状态失败 noteId={}", noteId, e);
+            // 检查失败时，为了安全起见，返回true（阻止操作）
+            return true;
+        }
     }
 
 }

@@ -79,3 +79,19 @@ export const cancelLikeRemark = (remarkId, loginUserId) => {
     }
   }).then(res => res.data.data)
 }
+
+/**
+ * [对应后端: GET /api/v1/remark/tree]
+ * 根据评论ID获取评论树
+ * @param {string} remarkId - 评论ID
+ * @param {number} loginUserId - 当前登录用户ID
+ * @returns {Promise<Object>} 返回评论树 (RemarkVO)
+ */
+export const getRemarkTree = (remarkId, loginUserId) => {
+  return service.get('/remark/tree', {
+    params: {
+      remarkId: remarkId,
+      loginUserId: loginUserId
+    }
+  }).then(res => res.data.data)
+}

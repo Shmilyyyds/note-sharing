@@ -30,7 +30,7 @@
               <svg class="meta-icon" viewBox="0 0 16 16" fill="currentColor">
                 <path d="M8 8a3 3 0 100-6 3 3 0 000 6zm2-3a2 2 0 11-4 0 2 2 0 014 0zm4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4zm-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.289 10 8 10c-2.29 0-3.516.68-4.168 1.332-.678.678-.83 1.418-.832 1.664h10z"/>
               </svg>
-              提问者 #{{ question.authorId }}
+              {{ question.authorName || `提问者 #${question.authorId}` }}
             </span>
             <span class="meta-item">
               <svg class="meta-icon" viewBox="0 0 16 16" fill="currentColor">
@@ -102,7 +102,7 @@
                   <svg class="meta-icon" viewBox="0 0 16 16" fill="currentColor">
                     <path d="M8 8a3 3 0 100-6 3 3 0 000 6zm2-3a2 2 0 11-4 0 2 2 0 014 0zm4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4zm-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.289 10 8 10c-2.29 0-3.516.68-4.168 1.332-.678.678-.83 1.418-.832 1.664h10z"/>
                   </svg>
-                  回答者 #{{ answer.authorId }}
+                  {{ answer.authorName || `回答者 #${answer.authorId}` }}
                 </span>
                 <span class="meta-item">
                   <svg class="meta-icon" viewBox="0 0 16 16" fill="currentColor">
@@ -157,7 +157,7 @@
                 >
                   <div class="comment-header">
                     <div class="comment-meta">
-                      <span class="comment-author">评论者 #{{ comment.authorId }}</span>
+                      <span class="comment-author">{{ comment.authorName || `评论者 #${comment.authorId}` }}</span>
                       <span class="comment-time">{{ formatTime(comment.createdAt) }}</span>
                     </div>
                     <div class="comment-header-actions">
@@ -213,7 +213,7 @@
                     >
                       <div class="reply-header">
                         <div class="reply-meta">
-                          <span class="reply-author">回复者 #{{ reply.authorId }}</span>
+                          <span class="reply-author">{{ reply.authorName || `回复者 #${reply.authorId}` }}</span>
                           <span class="reply-time">{{ formatTime(reply.createdAt) }}</span>
                         </div>
                         <div class="reply-header-actions">
@@ -252,6 +252,10 @@
       v-if="showToast"
       :message="toastMessage"
       :type="toastType"
+      :auto-close="toastType !== 'confirm'"
+      :show-close="toastType !== 'confirm'"
+      @confirm="handleConfirm"
+      @cancel="handleCancel"
       :duration="toastDuration"
       @close="hideMessage"
     />
@@ -286,7 +290,7 @@ const route = useRoute()
 const userStore = useUserStore()
 
 // 消息提示
-const { showToast, toastMessage, toastType, toastDuration, showSuccess, showError, hideMessage } = useMessage()
+const { showToast, toastMessage, toastType, toastDuration, showSuccess, showError, showConfirm, handleConfirm: handleConfirmCallback, handleCancel: handleCancelCallback, hideMessage } = useMessage()
 
 const props = defineProps({
   questionId: {
@@ -395,7 +399,8 @@ const goBack = () => {
           favoriteCount: question.value.favoriteCount || 0,
           answerCount: question.value.answers?.length || 0,
           answers: question.value.answers || [],
-          authorName: `用户 #${question.value.authorId}`
+          // 使用后端返回的 authorName，如果没有则使用后备值
+          authorName: question.value.authorName || `用户 #${question.value.authorId}`
         }
         localStorage.setItem('qa_question_list', JSON.stringify(questionList))
       }
@@ -663,8 +668,12 @@ const handleLikeReply = async (answer, comment, reply) => {
 
 // 删除回答
 const handleDeleteAnswer = async (answer) => {
-  const confirmed = window.confirm('确定要删除这个回答吗？删除后无法恢复。')
-  if (!confirmed) return
+  try {
+    const confirmed = await showConfirm('确定要删除这个回答吗？删除后无法恢复。')
+    if (!confirmed) return
+  } catch {
+    return
+  }
   
   const userId = userStore.userInfo?.id
   if (!userId) {
@@ -691,8 +700,12 @@ const handleDeleteAnswer = async (answer) => {
 
 // 删除评论
 const handleDeleteComment = async (answer, comment) => {
-  const confirmed = window.confirm('确定要删除这条评论吗？删除后无法恢复。')
-  if (!confirmed) return
+  try {
+    const confirmed = await showConfirm('确定要删除这条评论吗？删除后无法恢复。')
+    if (!confirmed) return
+  } catch {
+    return
+  }
   
   const userId = userStore.userInfo?.id
   if (!userId) {
@@ -719,8 +732,12 @@ const handleDeleteComment = async (answer, comment) => {
 
 // 删除回复
 const handleDeleteReply = async (answer, comment, reply) => {
-  const confirmed = window.confirm('确定要删除这条回复吗？删除后无法恢复。')
-  if (!confirmed) return
+  try {
+    const confirmed = await showConfirm('确定要删除这条回复吗？删除后无法恢复。')
+    if (!confirmed) return
+  } catch {
+    return
+  }
   
   const userId = userStore.userInfo?.id
   if (!userId) {
@@ -745,12 +762,24 @@ const handleDeleteReply = async (answer, comment, reply) => {
   }
 }
 
+const handleConfirm = () => {
+  handleConfirmCallback()
+}
+
+const handleCancel = () => {
+  handleCancelCallback()
+}
+
 // 删除问题
 const handleDeleteQuestion = async () => {
   if (!question.value) return
   
-  const confirmed = window.confirm('确定要删除这个问题吗？删除后无法恢复。')
-  if (!confirmed) return
+  try {
+    const confirmed = await showConfirm('确定要删除这个问题吗？删除后无法恢复。')
+    if (!confirmed) return
+  } catch {
+    return
+  }
   
   const userId = userStore.userInfo?.id
   if (!userId) {

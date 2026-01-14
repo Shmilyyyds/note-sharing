@@ -489,6 +489,141 @@ public class RemarkService {
         }
     }
 
+    /**
+     * 递归收集所有子评论ID（包括子评论的子评论）
+     * @param parentId 父评论ID
+     * @param allChildIds 收集所有子评论ID的列表
+     */
+    private void collectAllChildIds(String parentId, List<String> allChildIds) {
+        if (parentId == null || parentId.isEmpty()) {
+            return;
+        }
+
+        // 从 Redis 获取直接子评论列表
+        String replyKey = replyToIdKey + parentId;
+        List<String> directChildIds = new ArrayList<>();
+        if (redisTemplate.hasKey(replyKey)) {
+            List<Object> tmpList = redisTemplate.opsForList().range(replyKey, 0, -1);
+            if (tmpList != null) {
+                directChildIds = tmpList.stream().map(Object::toString).toList();
+            }
+        }
+
+        // Redis 没有则从数据库加载
+        if (directChildIds.isEmpty()) {
+            List<RemarkDO> childRemarks = remarkRepository.findRemarksByParentIdAndIsReplyTrue(parentId);
+            for (RemarkDO child : childRemarks) {
+                if (child != null && child.get_id() != null) {
+                    directChildIds.add(child.get_id());
+                }
+            }
+        }
+
+        // 递归处理每个子评论
+        for (String childId : directChildIds) {
+            if (!allChildIds.contains(childId)) {
+                allChildIds.add(childId);
+                // 递归收集子评论的子评论
+                collectAllChildIds(childId, allChildIds);
+            }
+        }
+    }
+
+    /**
+     * 删除单个评论及其相关数据（不删除子评论）
+     * @param remarkId 评论ID
+     * @param noteId 笔记ID
+     */
+    private void deleteSingleRemark(String remarkId, Long noteId) {
+        // 删除点赞记录和缓存
+        remarkLikeByUsersRepository.deleteById(remarkId);
+        remarkLikeCountRepository.deleteById(remarkId);
+        redisTemplate.delete(remarkLikeCountKey + remarkId);
+        redisTemplate.delete(userLikeRemarkListKey + remarkId);
+        redisTemplate.delete(remarkIdKey + remarkId);
+        
+        // 删除数据库记录
+        remarkRepository.deleteById(remarkId);
+        
+        // 更新评论统计
+        noteStatsService.changeField(noteId, "comments", -1);
+    }
+
+    /**
+     * 管理员删除评论（跳过权限检查，可删除任何评论）
+     * 递归删除所有子评论，但不影响父评论
+     * @param remarkId 评论ID
+     * @return 删除是否成功
+     */
+    @Transactional
+    public Boolean adminDeleteRemark(String remarkId) {
+        try {
+            // 1. 查找要删除的评论
+            RemarkDO remarkDO = remarkRepository.findById(remarkId)
+                    .orElseThrow(() -> new RuntimeException(
+                            "Remark not found for ID: " + remarkId));
+            Long noteId = remarkDO.getNoteId();
+            
+            // 2. 递归收集所有子评论ID（包括子评论的子评论）
+            List<String> allChildIds = new ArrayList<>();
+            collectAllChildIds(remarkId, allChildIds);
+
+            // 3. 先删除所有子评论（从最深层开始删除，避免外键约束问题）
+            // 由于MongoDB没有外键约束，可以按任意顺序删除，但为了逻辑清晰，我们从后往前删除
+            for (String childId : allChildIds) {
+                deleteSingleRemark(childId, noteId);
+            }
+
+            // 4. 删除子评论的Redis缓存键
+            if (!allChildIds.isEmpty()) {
+                String replyKey = replyToIdKey + remarkId;
+                redisTemplate.delete(replyKey);
+                // 删除所有子评论的replyKey
+                for (String childId : allChildIds) {
+                    redisTemplate.delete(replyToIdKey + childId);
+                }
+                // 批量删除子评论
+                remarkRepository.deleteByParentId(remarkId);
+                // 递归删除所有子评论
+                for (String childId : allChildIds) {
+                    remarkRepository.deleteByParentId(childId);
+                }
+            }
+
+            // 5. 删除该评论本身
+            deleteSingleRemark(remarkId, noteId);
+            
+            // 6. 删除 Redis 缓存（第一次删除）
+            redisTemplate.delete(remarkIdKey + remarkId);
+            if (!remarkDO.getIsReply()) {
+                redisTemplate.delete(NoteIdKey + remarkDO.getNoteId());
+            } else {
+                redisTemplate.delete(replyToIdKey + remarkDO.getParentId());
+            }
+
+            // 7. 延时再删除一次缓存（延时双删）
+            new Thread(() -> {
+                try {
+                    Thread.sleep(50); // 延时 50ms
+                    redisTemplate.delete(remarkIdKey + remarkId);
+                    if (!remarkDO.getIsReply()) {
+                        redisTemplate.delete(NoteIdKey + remarkDO.getNoteId());
+                    } else {
+                        redisTemplate.delete(replyToIdKey + remarkDO.getParentId());
+                    }
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }).start();
+            
+            return Boolean.TRUE;
+        } catch (Exception e) {
+            System.err.println("Failed to delete remark (admin): " + e.getMessage());
+            e.printStackTrace();
+            return Boolean.FALSE;
+        }
+    }
+
 
     @Transactional
     public Boolean likeRemark(String remarkId, Long userId) {
@@ -545,6 +680,11 @@ public class RemarkService {
             // Redis 已有点赞计数，直接自增
             newCount = redisTemplate.opsForValue().increment(countKey, 1L);
             redisTemplate.expire(countKey,Duration.ofMinutes(15));
+            // 确保不为负数
+            if (newCount == null || newCount < 0) {
+                redisTemplate.opsForValue().set(countKey, 0L);
+                newCount = 0L;
+            }
             log.info(newCount.toString());
 
         } else {
@@ -557,12 +697,22 @@ public class RemarkService {
                             .build()
                     );
 
+            // 确保数据库中的值不为负数
+            if (remarkCount.getRemarkLikeCount() < 0) {
+                remarkCount.setRemarkLikeCount(0L);
+            }
+
             // 同步到 Redis（作为 Hash）
-            redisTemplate.opsForValue().set(countKey,remarkCount.getRemarkLikeCount());
+            redisTemplate.opsForValue().set(countKey, remarkCount.getRemarkLikeCount());
             redisTemplate.expire(countKey,Duration.ofMinutes(15));
 
             // 自增一次
-            redisTemplate.opsForValue().increment(countKey, 1L);
+            newCount = redisTemplate.opsForValue().increment(countKey, 1L);
+            // 确保不为负数
+            if (newCount == null || newCount < 0) {
+                redisTemplate.opsForValue().set(countKey, 0L);
+                newCount = 0L;
+            }
         }
 
 
@@ -627,10 +777,12 @@ public class RemarkService {
         if (redisTemplate.hasKey(countKey)) {
 
             // Redis 已有计数，直接减 1（但不低于 0）
-            Long current = redisTemplate.opsForValue().increment(countKey,-1L);
-            redisTemplate.expire(countKey,Duration.ofMinutes(15));
-            if (current == null || current <0) {
+            Long current = redisTemplate.opsForValue().increment(countKey, -1L);
+            redisTemplate.expire(countKey, Duration.ofMinutes(15));
+            // 确保不为负数
+            if (current == null || current < 0) {
                 redisTemplate.opsForValue().set(countKey, 0L);
+                // 如果当前值已经是0或更小，说明数据不一致，返回false
                 return false;
             }
         } else {
@@ -640,14 +792,22 @@ public class RemarkService {
                 return false;
             }
 
+            // 确保数据库中的值不为负数
+            if (remarkCount.getRemarkLikeCount() < 0) {
+                remarkCount.setRemarkLikeCount(0L);
+            }
 
             // 同步到 Redis
             redisTemplate.opsForValue().set(countKey, remarkCount.getRemarkLikeCount());
-            redisTemplate.expire(redisKey,Duration.ofMinutes(15));
+            redisTemplate.expire(countKey, Duration.ofMinutes(15));
 
             // 自减一次（不低于 0）
             if (remarkCount.getRemarkLikeCount() > 0) {
-                redisTemplate.opsForValue().increment(countKey, -1);
+                Long newValue = redisTemplate.opsForValue().increment(countKey, -1);
+                // 确保不为负数
+                if (newValue == null || newValue < 0) {
+                    redisTemplate.opsForValue().set(countKey, 0L);
+                }
             }
         }
         return true;

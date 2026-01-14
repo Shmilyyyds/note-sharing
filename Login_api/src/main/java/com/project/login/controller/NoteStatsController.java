@@ -15,10 +15,12 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Duration;
+import java.util.Collections;
 
 @Slf4j
 @Tag(name = "Note Stats", description = "High-frequency note statistics")
@@ -115,84 +117,115 @@ public class NoteStatsController {
     /**
      * 检查并更新点赞状态，返回是否应该继续执行操作
      * 只使用Redis管理点赞状态，不依赖数据库
+     * 使用Lua脚本确保原子性，防止并发问题
      * @return true表示可以继续操作，false表示重复操作
      */
     private boolean checkAndUpdateLikeStatus(Long noteId, Long userId, boolean isLike) {
         String redisKey = USER_LIKE_NOTE_KEY_PREFIX + noteId;
         String userIdStr = userId.toString();
 
-        // 检查Redis中的状态
-        boolean isMember = Boolean.TRUE.equals(redisTemplate.opsForSet().isMember(redisKey, userIdStr));
+        // 使用Lua脚本确保原子性：检查状态并更新
+        String luaScript = 
+            "local key = KEYS[1]\n" +
+            "local userId = ARGV[1]\n" +
+            "local isLike = ARGV[2]\n" +
+            "local expireSeconds = ARGV[3]\n" +
+            "local isMember = redis.call('SISMEMBER', key, userId)\n" +
+            "if tonumber(isLike) == 1 then\n" +
+            "    if isMember == 1 then\n" +
+            "        return 0  -- 已经点赞过，返回0表示重复操作\n" +
+            "    else\n" +
+            "        redis.call('SADD', key, userId)\n" +
+            "        redis.call('EXPIRE', key, expireSeconds)\n" +
+            "        return 1  -- 成功点赞，返回1表示可以继续\n" +
+            "    end\n" +
+            "else\n" +
+            "    if isMember == 0 then\n" +
+            "        return 0  -- 没有点赞过，取消点赞无效\n" +
+            "    else\n" +
+            "        redis.call('SREM', key, userId)\n" +
+            "        redis.call('EXPIRE', key, expireSeconds)\n" +
+            "        return 1  -- 成功取消点赞，返回1表示可以继续\n" +
+            "    end\n" +
+            "end";
 
-        // 幂等性检查
-        if (isLike && isMember) {
-            // 已经点赞过，再次点赞无效
-            log.debug("User {} already liked note {}, skip", userId, noteId);
-            return false;
-        }
-        if (!isLike && !isMember) {
-            // 没有点赞过，取消点赞无效
-            log.debug("User {} hasn't liked note {}, skip cancel", userId, noteId);
-            return false;
-        }
+        DefaultRedisScript<Long> script = new DefaultRedisScript<>();
+        script.setScriptText(luaScript);
+        script.setResultType(Long.class);
+        Long result = redisTemplate.execute(
+            script,
+            Collections.singletonList(redisKey),
+            userIdStr,
+            isLike ? "1" : "0",
+            String.valueOf(Duration.ofDays(30).getSeconds())
+        );
 
-        // 更新Redis缓存（使用原子操作）
-        if (isLike) {
-            redisTemplate.opsForSet().add(redisKey, userIdStr);
-        } else {
-            redisTemplate.opsForSet().remove(redisKey, userIdStr);
+        boolean shouldProceed = result != null && result == 1;
+        if (!shouldProceed) {
+            log.debug("User {} {} note {} failed (duplicate operation)", userId, isLike ? "like" : "unlike", noteId);
         }
-        // 设置较长的过期时间（30天），因为点赞状态需要持久化
-        redisTemplate.expire(redisKey, Duration.ofDays(30));
-
-        return true;
+        return shouldProceed;
     }
 
     /**
      * 检查并更新收藏状态，返回是否应该继续执行操作
      * 优先使用Redis，数据库作为持久化备份
+     * 使用Lua脚本确保原子性，防止并发问题
      * @return true表示可以继续操作，false表示重复操作
      */
     private boolean checkAndUpdateFavoriteStatus(Long noteId, Long userId, boolean isFavorite) {
         String redisKey = USER_FAVORITE_NOTE_KEY_PREFIX + noteId;
         String userIdStr = userId.toString();
 
-        // 先检查Redis缓存
-        boolean isMember = Boolean.TRUE.equals(redisTemplate.opsForSet().isMember(redisKey, userIdStr));
-        
         // 如果Redis中没有数据，尝试从数据库加载（仅作为初始化）
         if (!redisTemplate.hasKey(redisKey)) {
             int count = userFavoriteNoteMapper.exists(userId, noteId);
-            isMember = count > 0;
-            
-            // 如果数据库中有数据，同步到Redis
-            if (isMember) {
+            if (count > 0) {
                 redisTemplate.opsForSet().add(redisKey, userIdStr);
             }
         }
 
-        // 幂等性检查
-        if (isFavorite && isMember) {
-            // 已经收藏过，再次收藏无效
-            log.debug("User {} already favorited note {}, skip", userId, noteId);
-            return false;
-        }
-        if (!isFavorite && !isMember) {
-            // 没有收藏过，取消收藏无效
-            log.debug("User {} hasn't favorited note {}, skip cancel", userId, noteId);
-            return false;
-        }
+        // 使用Lua脚本确保原子性：检查状态并更新
+        String luaScript = 
+            "local key = KEYS[1]\n" +
+            "local userId = ARGV[1]\n" +
+            "local isFavorite = ARGV[2]\n" +
+            "local expireSeconds = ARGV[3]\n" +
+            "local isMember = redis.call('SISMEMBER', key, userId)\n" +
+            "if tonumber(isFavorite) == 1 then\n" +
+            "    if isMember == 1 then\n" +
+            "        return 0  -- 已经收藏过，返回0表示重复操作\n" +
+            "    else\n" +
+            "        redis.call('SADD', key, userId)\n" +
+            "        redis.call('EXPIRE', key, expireSeconds)\n" +
+            "        return 1  -- 成功收藏，返回1表示可以继续\n" +
+            "    end\n" +
+            "else\n" +
+            "    if isMember == 0 then\n" +
+            "        return 0  -- 没有收藏过，取消收藏无效\n" +
+            "    else\n" +
+            "        redis.call('SREM', key, userId)\n" +
+            "        redis.call('EXPIRE', key, expireSeconds)\n" +
+            "        return 1  -- 成功取消收藏，返回1表示可以继续\n" +
+            "    end\n" +
+            "end";
 
-        // 更新Redis缓存（使用原子操作）
-        if (isFavorite) {
-            redisTemplate.opsForSet().add(redisKey, userIdStr);
-        } else {
-            redisTemplate.opsForSet().remove(redisKey, userIdStr);
-        }
-        // 设置较长的过期时间（30天），因为收藏状态需要持久化
-        redisTemplate.expire(redisKey, Duration.ofDays(30));
+        DefaultRedisScript<Long> script = new DefaultRedisScript<>();
+        script.setScriptText(luaScript);
+        script.setResultType(Long.class);
+        Long result = redisTemplate.execute(
+            script,
+            Collections.singletonList(redisKey),
+            userIdStr,
+            isFavorite ? "1" : "0",
+            String.valueOf(Duration.ofDays(30).getSeconds())
+        );
 
-        return true;
+        boolean shouldProceed = result != null && result == 1;
+        if (!shouldProceed) {
+            log.debug("User {} {} note {} failed (duplicate operation)", userId, isFavorite ? "favorite" : "unfavorite", noteId);
+        }
+        return shouldProceed;
     }
 
 

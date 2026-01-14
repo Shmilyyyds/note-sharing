@@ -8,16 +8,6 @@
     </div>
 
     <div class="input-group">
-      <label>学号</label>
-      <input v-model="studentNumber" type="text" placeholder="输入学号" />
-    </div>
-
-    <div class="input-group">
-      <label>用户名</label>
-      <input v-model="username" type="text" placeholder="输入用户名" />
-    </div>
-
-    <div class="input-group">
       <label>密码</label>
       <input v-model="password" type="password" placeholder="输入密码" />
     </div>
@@ -35,7 +25,7 @@
       :message="toastMessage"
       :type="toastType"
       :redirect-to="toastRedirect"
-      :duration="2000"
+      :duration="1200"
       @close="showToast = false"
     />
   </div>
@@ -46,14 +36,14 @@ import { ref } from "vue";
 import { useRouter } from "vue-router";
 import api from "../api/request";
 import MessageToast from "./MessageToast.vue";
+import { useUserStore } from "@/stores/user";
 
 // 输入框数据
 const email = ref("");
-const studentNumber = ref("");
-const username = ref("");
 const password = ref("");
 
 const router = useRouter();
+const userStore = useUserStore();
 
 // 消息提示相关
 const showToast = ref(false);
@@ -71,7 +61,7 @@ const showMessage = (message, type = "success", redirectTo = null) => {
 
 // 登录方法
 const login = async () => {
-  if (!email.value || !studentNumber.value || !username.value || !password.value) {
+  if (!email.value || !password.value) {
     showMessage("请填写完整信息！", "error");
     return;
   }
@@ -79,8 +69,6 @@ const login = async () => {
   try {
     const res = await api.post("/auth/login", {
       email: email.value,
-      studentNumber: studentNumber.value,
-      username: username.value,
       password: password.value
     });
 
@@ -88,6 +76,11 @@ const login = async () => {
 
     // 假设后端返回 token：{ token: "xxxx" }
     localStorage.setItem("token", res.data.token);
+    
+    // 设置登录入口类型为普通用户
+    userStore.setLoginType('user');
+    // 解码并设置 token 中的用户信息
+    userStore.decodeAndSetToken(res.data.token, 'user');
 
     // 显示成功消息并自动跳转
     showMessage("登录成功！", "success", "/main");
@@ -101,50 +94,95 @@ const login = async () => {
 <style scoped>
 .form-container {
   width: 100%;
-  max-width: 400px;
-  margin: 0 auto;
   display: flex;
   flex-direction: column;
 }
+
 h2 {
   text-align: center;
+  margin-bottom: 32px;
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--text-strong);
+  letter-spacing: -0.02em;
+}
+
+.input-group {
   margin-bottom: 20px;
 }
-.input-group {
-  margin-bottom: 15px;
-}
+
 .input-group label {
   font-size: 14px;
-  margin-bottom: 4px;
+  font-weight: 500;
+  margin-bottom: 8px;
   display: block;
+  color: var(--text-primary);
 }
+
 .input-group input {
   width: 100%;
-  padding: 10px;
-  border: 1px solid #ccc;
-  border-radius: 8px;
+  padding: 14px 16px;
+  border: 1.5px solid var(--line-soft);
+  border-radius: var(--radius-sm);
   font-size: 15px;
+  color: var(--text-primary);
+  background: var(--surface-base);
+  transition: all var(--transition-base);
+  box-sizing: border-box;
 }
+
+.input-group input:focus {
+  outline: none;
+  border-color: var(--brand-primary);
+  box-shadow: 0 0 0 3px rgba(34, 191, 163, 0.1);
+}
+
+.input-group input::placeholder {
+  color: var(--text-muted);
+}
+
 .btn {
-  padding: 12px;
-  margin-top: 10px;
+  padding: 14px 24px;
+  margin-top: 8px;
   border: none;
-  background-color: #4e54c8;
+  background: var(--brand-primary);
   color: white;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   font-size: 16px;
+  font-weight: 500;
+  transition: all var(--transition-base);
+  box-shadow: var(--shadow-sm);
 }
+
 .btn:hover {
-  background-color: #3c40a8;
+  background: var(--brand-primary-hover);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
 }
+
+.btn:active {
+  transform: translateY(0);
+  box-shadow: var(--shadow-xs);
+}
+
 .links {
   display: flex;
   justify-content: space-between;
-  margin-top: 10px;
+  margin-top: 24px;
+  gap: 16px;
 }
+
 .links a {
-  color: #4e54c8;
+  color: var(--brand-primary);
   font-size: 14px;
+  font-weight: 500;
+  transition: color var(--transition-fast);
+  text-decoration: none;
+}
+
+.links a:hover {
+  color: var(--brand-primary-hover);
+  text-decoration: none;
 }
 </style>

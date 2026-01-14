@@ -9,6 +9,7 @@ import java.util.List;
 public class CommentVO {
     private Long commentId;
     private Long authorId;
+    private String authorName;  // 评论者用户名
     private String content;
     private LocalDateTime createdAt;
     private int likeCount;

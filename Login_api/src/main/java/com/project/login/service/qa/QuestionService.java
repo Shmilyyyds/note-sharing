@@ -9,6 +9,8 @@ import com.project.login.model.vo.qa.AnswerVO;
 import com.project.login.model.vo.qa.CommentVO;
 import com.project.login.model.vo.qa.QuestionVO;
 import com.project.login.model.vo.qa.ReplyVO;
+import com.project.login.model.vo.qa.QACommentDetailVO;
+import com.project.login.mapper.UserMapper;
 import com.project.login.repository.QuestionRepository;
 
 import com.project.login.service.notification.NotificationService;
@@ -21,6 +23,8 @@ import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Slf4j
 @Service
@@ -32,6 +36,7 @@ public class QuestionService {
     private final RabbitTemplate rabbitTemplate;
     private final ObjectMapper objectMapper;
     private final NotificationService notificationService;
+    private final UserMapper userMapper;
     @Resource
     private StringRedisTemplate redis;
 
@@ -195,11 +200,21 @@ public class QuestionService {
         QuestionDO q = repo.findByQuestionId(questionId);
         if (q == null) return;
 
+        // 确保likes列表不为null
+        if (q.getLikes() == null) {
+            q.setLikes(new ArrayList<>());
+        }
+
         boolean alreadyLiked = q.getLikes().contains(userId);
         if (alreadyLiked) {
             q.getLikes().remove(userId);
         } else {
             q.getLikes().add(userId);
+        }
+
+        // 确保点赞数不为负数
+        if (q.getLikes().size() < 0) {
+            q.setLikes(new ArrayList<>());
         }
 
         repo.save(q);
@@ -225,12 +240,22 @@ public class QuestionService {
 
         if (answer == null) return; // 如果没有找到该回答
 
+        // 确保likes列表不为null
+        if (answer.getLikes() == null) {
+            answer.setLikes(new ArrayList<>());
+        }
+
         // 判断用户是否已点赞
         boolean alreadyLiked = answer.getLikes().contains(userId);
         if (alreadyLiked) {
             answer.getLikes().remove(userId); // 如果已点赞，则移除
         } else {
             answer.getLikes().add(userId);    // 如果未点赞，则添加
+        }
+
+        // 确保点赞数不为负数
+        if (answer.getLikes().size() < 0) {
+            answer.setLikes(new ArrayList<>());
         }
 
         // 保存更新后的问题
@@ -264,12 +289,22 @@ public class QuestionService {
 
         if (comment == null) return; // 如果没有找到该评论
 
+        // 确保likes列表不为null
+        if (comment.getLikes() == null) {
+            comment.setLikes(new ArrayList<>());
+        }
+
         // 判断用户是否已点赞
         boolean alreadyLiked = comment.getLikes().contains(userId);
         if (alreadyLiked) {
             comment.getLikes().remove(userId); // 如果已点赞，则移除
         } else {
             comment.getLikes().add(userId);    // 如果未点赞，则添加
+        }
+
+        // 确保点赞数不为负数
+        if (comment.getLikes().size() < 0) {
+            comment.setLikes(new ArrayList<>());
         }
 
         // 保存更新后的问题
@@ -311,12 +346,22 @@ public class QuestionService {
 
         if (reply == null) return; // 如果没有找到该回复
 
+        // 确保likes列表不为null
+        if (reply.getLikes() == null) {
+            reply.setLikes(new ArrayList<>());
+        }
+
         // 判断用户是否已点赞
         boolean alreadyLiked = reply.getLikes().contains(userId);
         if (alreadyLiked) {
             reply.getLikes().remove(userId); // 如果已点赞，则移除
         } else {
             reply.getLikes().add(userId);    // 如果未点赞，则添加
+        }
+
+        // 确保点赞数不为负数
+        if (reply.getLikes().size() < 0) {
+            reply.setLikes(new ArrayList<>());
         }
 
         // 保存更新后的问题
@@ -335,11 +380,21 @@ public class QuestionService {
         QuestionDO q = repo.findByQuestionId(questionId);
         if (q == null) return;
 
+        // 确保favorites列表不为null
+        if (q.getFavorites() == null) {
+            q.setFavorites(new ArrayList<>());
+        }
+
         boolean alreadyFavorite = q.getFavorites().contains(userId);
         if (alreadyFavorite)
             q.getFavorites().remove(userId);
         else
             q.getFavorites().add(userId);
+
+        // 确保收藏数不为负数
+        if (q.getFavorites().size() < 0) {
+            q.setFavorites(new ArrayList<>());
+        }
 
         repo.save(q);
 
@@ -387,7 +442,7 @@ public class QuestionService {
         updateRedisCacheIfExists(questionId, q);
     }
 
-    /** 删除评论 */
+    /** 删除评论（同时删除其下的所有回复） */
     public void deleteComment(String questionId, Long answerId, Long commentId) {
         QuestionDO q = repo.findByQuestionId(questionId);
         if (q == null) return;
@@ -395,9 +450,19 @@ public class QuestionService {
         q.getAnswers().stream()
                 .filter(a -> a.getAnswerId().equals(answerId))
                 .findFirst()
-                .ifPresent(a ->
-                        a.getComments().removeIf(c -> c.getCommentId().equals(commentId))
-                );
+                .ifPresent(a -> {
+                    // 查找要删除的评论
+                    QuestionDO.CommentDO commentToDelete = a.getComments().stream()
+                            .filter(c -> c.getCommentId().equals(commentId))
+                            .findFirst()
+                            .orElse(null);
+                    
+                    if (commentToDelete != null) {
+                        // 删除评论下的所有回复（replies会被自动删除，因为Comment被删除）
+                        // 这里直接删除整个Comment对象即可，其下的replies会自动删除
+                        a.getComments().removeIf(c -> c.getCommentId().equals(commentId));
+                    }
+                });
 
         repo.save(q);
 
@@ -457,6 +522,169 @@ public class QuestionService {
         }
 
         return convert.toQuestionVO(q);
+    }
+
+    /** 统计问题总数（管理员用） */
+    public Long getQuestionCount() {
+        return repo.count();
+    }
+
+    /** 统计回答总数（管理员用） */
+    public Long getAnswerCount() {
+        List<QuestionDO> doList = repo.findAll();
+        long count = 0;
+        for (QuestionDO q : doList) {
+            if (q.getAnswers() != null) {
+                count += q.getAnswers().size();
+            }
+        }
+        return count;
+    }
+
+    /** 获取所有问题列表（管理员用） */
+    public List<QuestionVO> getAllQuestions() {
+        List<QuestionDO> doList = repo.findAll();
+        if (doList.isEmpty()) {
+            return new ArrayList<>();
+        }
+        
+        List<QuestionVO> voList = new ArrayList<>();
+        for (QuestionDO q : doList) {
+            QuestionVO vo = convert.toQuestionVO(q);
+            voList.add(vo);
+        }
+        
+        return voList;
+    }
+
+    /** 统计问答评论总数（包括Comment和Reply，管理员用） */
+    public Long getQACommentCount() {
+        List<QuestionDO> doList = repo.findAll();
+        long count = 0;
+        for (QuestionDO q : doList) {
+            if (q.getAnswers() != null) {
+                for (QuestionDO.AnswerDO answer : q.getAnswers()) {
+                    if (answer.getComments() != null) {
+                        count += answer.getComments().size(); // 一级评论
+                        // 统计二级回复
+                        for (QuestionDO.CommentDO comment : answer.getComments()) {
+                            if (comment.getReplies() != null) {
+                                count += comment.getReplies().size();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return count;
+    }
+
+    /** 获取所有问答评论列表（包括Comment和Reply，管理员用） */
+    public List<QACommentDetailVO> getAllQAComments() {
+        List<QuestionDO> doList = repo.findAll();
+        List<QACommentDetailVO> voList = new ArrayList<>();
+        
+        for (QuestionDO q : doList) {
+            String questionId = q.getQuestionId();
+            String questionTitle = q.getTitle();
+            
+            if (q.getAnswers() != null) {
+                for (QuestionDO.AnswerDO answer : q.getAnswers()) {
+                    Long answerId = answer.getAnswerId();
+                    
+                    // 处理一级评论（Comment）
+                    if (answer.getComments() != null) {
+                        for (QuestionDO.CommentDO comment : answer.getComments()) {
+                            QACommentDetailVO vo = QACommentDetailVO.builder()
+                                    .id(comment.getCommentId())
+                                    .type("COMMENT")
+                                    .questionId(questionId)
+                                    .questionTitle(questionTitle)
+                                    .answerId(answerId)
+                                    .parentCommentId(null)
+                                    .authorId(comment.getAuthorId())
+                                    .authorName(getAuthorName(comment.getAuthorId()))
+                                    .content(comment.getContent())
+                                    .createdAt(comment.getCreatedAt())
+                                    .likeCount(comment.getLikes() != null ? comment.getLikes().size() : 0)
+                                    .build();
+                            voList.add(vo);
+                            
+                            // 处理二级回复（Reply）
+                            if (comment.getReplies() != null) {
+                                for (QuestionDO.ReplyDO reply : comment.getReplies()) {
+                                    QACommentDetailVO replyVo = QACommentDetailVO.builder()
+                                            .id(reply.getReplyId())
+                                            .type("REPLY")
+                                            .questionId(questionId)
+                                            .questionTitle(questionTitle)
+                                            .answerId(answerId)
+                                            .parentCommentId(comment.getCommentId())
+                                            .authorId(reply.getAuthorId())
+                                            .authorName(getAuthorName(reply.getAuthorId()))
+                                            .content(reply.getContent())
+                                            .createdAt(reply.getCreatedAt())
+                                            .likeCount(reply.getLikes() != null ? reply.getLikes().size() : 0)
+                                            .build();
+                                    voList.add(replyVo);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        return voList;
+    }
+
+    /** 获取作者名称 */
+    private String getAuthorName(Long authorId) {
+        if (authorId == null) {
+            return "未知用户";
+        }
+        try {
+            String authorName = userMapper.selectNameById(authorId);
+            return authorName != null ? authorName : "用户 #" + authorId;
+        } catch (Exception e) {
+            log.warn("获取作者用户名失败 authorId={}", authorId, e);
+            return "用户 #" + authorId;
+        }
+    }
+
+    /** 获取评论树（用于管理员查看评论结构，管理员用） */
+    public CommentVO getCommentTree(String questionId, Long answerId, Long commentId) {
+        QuestionDO q = repo.findByQuestionId(questionId);
+        if (q == null) return null;
+
+        QuestionDO.CommentDO commentDO = q.getAnswers().stream()
+                .filter(a -> a.getAnswerId().equals(answerId))
+                .flatMap(a -> a.getComments().stream())
+                .filter(c -> c.getCommentId().equals(commentId))
+                .findFirst()
+                .orElse(null);
+
+        if (commentDO == null) return null;
+
+        return convert.toCommentVO(commentDO);
+    }
+
+    /** 统计评论下的回复数量（递归统计，管理员用） */
+    public int countCommentReplies(String questionId, Long answerId, Long commentId) {
+        QuestionDO q = repo.findByQuestionId(questionId);
+        if (q == null) return 0;
+
+        QuestionDO.CommentDO commentDO = q.getAnswers().stream()
+                .filter(a -> a.getAnswerId().equals(answerId))
+                .flatMap(a -> a.getComments().stream())
+                .filter(c -> c.getCommentId().equals(commentId))
+                .findFirst()
+                .orElse(null);
+
+        if (commentDO == null) return 0;
+
+        // 统计回复数量（当前只有一层，Reply不能再有子回复）
+        return commentDO.getReplies() != null ? commentDO.getReplies().size() : 0;
     }
 
 }

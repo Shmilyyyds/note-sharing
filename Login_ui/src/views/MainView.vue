@@ -27,7 +27,11 @@
             @keyup.enter="handleSearch"
         />
         <button class="search-button" type="button" aria-label="搜索" @click="handleSearch">
-          <span class="search-icon">🔍</span>
+          <img
+            src="/assets/icons/icon-search.svg"
+            alt="搜索"
+            class="search-icon"
+          />
         </button>
       </div>
 
@@ -241,6 +245,7 @@ import {
   markAllNotificationsAsRead
 } from '@/api/notification'
 import { getUserById } from '@/api/follow'
+import { getFileUrlByNoteId } from '@/api/note'
 
 const router = useRouter()
 const route = useRoute()
@@ -362,8 +367,67 @@ const toggleNotificationPanel = async () => {
 const handleNotificationClick = async (item) => {
   if (!item) return
 
+  // 如果是笔记被退回的通知，跳转到笔记编辑页面
+  if (item.type === 'NOTE_MODERATION_REJECTED' && item.targetType === 'NOTE' && item.targetId) {
+    const noteId = Number(item.targetId)
+    if (!Number.isNaN(noteId)) {
+      try {
+        // 获取笔记信息（包含 notebookId 和 spaceId）
+        const noteInfo = await getFileUrlByNoteId(noteId)
+        if (noteInfo && noteInfo.notebookId && noteInfo.spaceId) {
+          // 设置编辑器状态
+          editingNotebookId.value = noteInfo.notebookId
+          editingSpaceId.value = noteInfo.spaceId
+          editingNoteId.value = noteId
+          
+          // 获取笔记本名称和列表
+          try {
+            const userId = userStore.userInfo.id
+            if (userId) {
+              const response = await service.post(`${BASE_PATH}/notebooks/by-space`, {
+                spaceId: noteInfo.spaceId,
+                userId
+              })
+              
+              if (response.data.code === 200 && Array.isArray(response.data.data)) {
+                const notebooks = response.data.data
+                // 找到当前笔记本
+                const currentNotebook = notebooks.find(nb => nb.id === noteInfo.notebookId)
+                if (currentNotebook) {
+                  editingNotebookName.value = currentNotebook.name
+                }
+                editingNotebookList.value = notebooks
+              }
+            }
+          } catch (error) {
+            console.error('获取笔记本列表失败:', error)
+          }
+          
+          // 更新 URL
+          router.replace({
+            path: route.path,
+            query: {
+              ...route.query,
+              tab: 'workspace',
+              notebookId: noteInfo.notebookId,
+              spaceId: noteInfo.spaceId,
+              notebookName: editingNotebookName.value || undefined,
+              noteId: noteId
+            }
+          })
+          currentTab.value = 'workspace'
+        } else {
+          console.error('无法获取笔记的 notebookId 或 spaceId')
+        }
+      } catch (error) {
+        console.error('获取笔记信息失败:', error)
+        // 如果获取失败，回退到详情页
+        handleOpenNoteDetail({ noteId, fromTab: currentTab.value || 'hot' })
+      }
+    }
+  }
   // 根据 targetType 跳转到对应详情页
-  if (item.targetType === 'NOTE' && item.targetId) {
+  else if (item.targetType === 'NOTE' && item.targetId) {
     const noteId = Number(item.targetId)
     if (!Number.isNaN(noteId)) {
       handleOpenNoteDetail({ noteId, fromTab: currentTab.value || 'hot' })
@@ -1081,21 +1145,19 @@ onBeforeUnmount(() => {
 .main-header {
   display: flex;
   align-items: center;
-  background: white;
-  padding: 0 20px;
-  height: 52px;
-  border-bottom: 1px solid #ededed;
+  background: var(--surface-base);
+  padding: 0 24px;
+  height: 64px;
+  border-bottom: 1px solid var(--line-soft);
   gap: 24px;
-  box-shadow: none;
-  border-radius: 0;
-  border: none;
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   width: 100%;
   z-index: 1000;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--shadow-xs);
+  backdrop-filter: blur(10px);
 }
 
 /* --- Logo / Nav Links (保持不变) --- */
@@ -1118,7 +1180,7 @@ onBeforeUnmount(() => {
 }
 
 .brand-logo-text:hover {
-  color: #007FFF;
+  color: var(--brand-primary);
   opacity: 1;
 }
 
@@ -1132,33 +1194,37 @@ onBeforeUnmount(() => {
 .nav-link-item {
   background: none;
   border: none;
-  padding: 0 0 5px 0;
-  color: #444;
+  padding: 8px 12px;
+  color: var(--text-secondary);
   font-size: 15px;
+  font-weight: 500;
   cursor: pointer;
-  transition: color 0.2s, border-bottom-color 0.2s;
+  transition: all var(--transition-fast);
   position: relative;
   flex-shrink: 0;
+  border-radius: var(--radius-xs);
 }
 
 .nav-link-item.active {
-  color: #000;
-  font-weight: bold;
+  color: var(--text-strong);
+  font-weight: 600;
 }
+
 .nav-link-item.active::after {
   content: '';
   position: absolute;
   left: 50%;
   bottom: 0;
   transform: translateX(-50%);
-  width: 28px;
+  width: 24px;
   height: 3px;
-  background-color: #007FFF;
+  background-color: var(--brand-primary);
   border-radius: 2px;
 }
 
 .nav-link-item:hover {
-  color: #000;
+  color: var(--text-strong);
+  background: var(--surface-soft);
 }
 
 
@@ -1170,33 +1236,33 @@ onBeforeUnmount(() => {
   max-width: 480px;
   height: 38px;
   background: var(--surface-base);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   overflow: hidden;
   align-items: center;
   margin-left: auto;
   margin-right: 30px;
-  border: 1px solid var(--line-soft);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-  transition: box-shadow 0.2s, border-color 0.2s;
+  border: 1.5px solid var(--line-soft);
+  box-shadow: var(--shadow-xs);
+  transition: all var(--transition-base);
 }
 
 .search-container:focus-within {
   border-color: var(--brand-primary);
-  box-shadow: 0 2px 6px rgba(34, 191, 163, 0.12);
+  box-shadow: 0 0 0 3px rgba(34, 191, 163, 0.1), var(--shadow-sm);
 }
 
 .search-input {
   flex: 1;
   border: none;
   background: none;
-  padding: 0 12px;
+  padding: 0 14px;
   font-size: 14px;
-  color: #333;
+  color: var(--text-primary);
   height: 100%;
 }
 
 .search-input::placeholder {
-  color: #999;
+  color: var(--text-muted);
 }
 
 .search-button {
@@ -1212,8 +1278,15 @@ onBeforeUnmount(() => {
 }
 
 .search-icon {
-  font-size: 16px;
-  color: #8590a6;
+  width: 18px;
+  height: 18px;
+  color: var(--text-muted);
+  object-fit: contain;
+  transition: color var(--transition-fast);
+}
+
+.search-container:focus-within .search-icon {
+  color: var(--brand-primary);
 }
 
 
@@ -1231,20 +1304,28 @@ onBeforeUnmount(() => {
 .ask-button {
   display: flex;
   align-items: center;
-  gap: 4px;
-  background-color: #007FFF;
+  gap: 6px;
+  background: var(--brand-primary);
   color: white;
   border: none;
   border-radius: 20px;
-  padding: 8px 16px;
+  padding: 8px 18px;
   font-size: 15px;
+  font-weight: 500;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: all var(--transition-base);
   height: 38px;
+  box-shadow: var(--shadow-xs);
 }
 
 .ask-button:hover {
-  background-color: #006EDC;
+  background: var(--brand-primary-hover);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
+}
+
+.ask-button:active {
+  transform: translateY(0);
 }
 
 .ask-button .icon {
@@ -1270,7 +1351,7 @@ onBeforeUnmount(() => {
 }
 
 .action-icon-wrapper:hover {
-  background-color: #f6f6f6;
+  background-color: var(--surface-soft);
 }
 
 /* 新增：图片图标的通用样式 */
@@ -1287,21 +1368,27 @@ onBeforeUnmount(() => {
 
 .action-icon-wrapper .action-text {
   font-size: 12px;
-  color: #8590a6;
+  color: var(--text-muted);
   white-space: nowrap;
   line-height: 1;
+  transition: color var(--transition-fast);
+}
+
+.action-icon-wrapper:hover .action-text {
+  color: var(--text-secondary);
 }
 
 .action-icon-wrapper .badge {
   position: absolute;
   top: 0px;
   right: 5px;
-  background-color: #ff4d4f;
+  background-color: var(--feedback-danger);
   color: white;
   font-size: 11px;
-  padding: 0px 4px;
+  font-weight: 600;
+  padding: 0px 5px;
   border-radius: 10px;
-  min-width: 12px;
+  min-width: 16px;
   height: 18px;
   display: flex;
   align-items: center;
@@ -1309,6 +1396,7 @@ onBeforeUnmount(() => {
   text-align: center;
   line-height: 1;
   box-sizing: border-box;
+  box-shadow: var(--shadow-xs);
 }
 
 /* 用户头像 */
@@ -1326,7 +1414,7 @@ onBeforeUnmount(() => {
 }
 
 .user-avatar-block:hover {
-  background-color: #f6f6f6;
+  background-color: var(--surface-soft);
 }
 
 .user-avatar-block .avatar-placeholder {
@@ -1351,23 +1439,30 @@ onBeforeUnmount(() => {
 
 .main-content {
   flex: 1;
-  padding: 20px;
-  margin-top: 52px;
+  padding: 24px;
+  margin-top: 64px;
+  max-width: 1400px;
+  margin-left: auto;
+  margin-right: auto;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .notification-panel {
   position: fixed;
-  top: 64px;
+  top: 76px;
   right: 32px;
-  width: 360px;
-  max-height: 480px;
+  width: 380px;
+  max-height: 520px;
   background: var(--surface-base);
   border-radius: var(--radius-md);
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.18);
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--line-soft);
   display: flex;
   flex-direction: column;
   overflow: hidden;
   z-index: 1500;
+  backdrop-filter: blur(10px);
 }
 
 .notification-panel-header {
@@ -1391,6 +1486,14 @@ onBeforeUnmount(() => {
   font-size: 12px;
   color: var(--text-muted);
   cursor: pointer;
+  padding: 4px 8px;
+  border-radius: var(--radius-xs);
+  transition: all var(--transition-fast);
+}
+
+.notification-mark-all:hover {
+  color: var(--brand-primary);
+  background: var(--surface-soft);
 }
 
 .notification-list {
@@ -1417,7 +1520,7 @@ onBeforeUnmount(() => {
 }
 
 .notification-item.is-unread {
-  background: rgba(59, 130, 246, 0.06);
+  background: rgba(34, 191, 163, 0.08);
 }
 
 .notification-avatar {

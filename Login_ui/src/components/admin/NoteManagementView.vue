@@ -14,9 +14,7 @@
     <!-- 搜索框 -->
     <div class="search-container">
       <div class="search-box">
-        <svg class="search-icon" viewBox="0 0 16 16" fill="currentColor">
-          <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
-        </svg>
+        <img src="/assets/icons/icon-search.svg" alt="搜索" class="search-icon" />
         <input
           v-model="searchQuery"
           type="text"
@@ -44,7 +42,7 @@
           <tr>
             <th>笔记ID</th>
             <th>标题</th>
-            <th>作者</th>
+            <th>上传者</th>
             <th>创建时间</th>
             <th>操作</th>
           </tr>
@@ -61,10 +59,17 @@
           <tr v-else v-for="note in paginatedNotes" :key="note.id || note.noteId">
             <td>{{ note.id || note.noteId }}</td>
             <td class="title-cell" v-html="highlightKeyword(note.title || note.name || '-')"></td>
-            <td>{{ note.authorName || note.username || '-' }}</td>
+            <td class="author-cell">
+              <div v-if="note.authorName || note.authorEmail">
+                <div v-if="note.authorName" class="author-name">{{ note.authorName }}</div>
+                <div v-if="note.authorEmail" class="author-email">{{ note.authorEmail }}</div>
+              </div>
+              <span v-else>-</span>
+            </td>
             <td>{{ formatTime(note.createdAt || note.createTime || note.updatedAt || note.updated_at) }}</td>
             <td>
               <button class="action-btn" @click="viewNote(note)">查看</button>
+              <button class="action-btn delete-btn" @click="handleDeleteNote(note)">删除</button>
             </td>
           </tr>
         </tbody>
@@ -111,6 +116,7 @@
 <script setup>
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { getNoteCount, getNoteList, searchNotes } from '../../api/admin'
+import { deleteNote } from '../../api/note'
 
 const noteCount = ref(0)
 const notes = ref([])
@@ -222,6 +228,31 @@ const viewNote = (note) => {
   const noteId = note.id || note.noteId
   if (noteId) {
     window.open(`/main?tab=note-detail&noteId=${noteId}`, '_blank')
+  }
+}
+
+const handleDeleteNote = async (note) => {
+  const noteId = note.id || note.noteId
+  if (!noteId) {
+    alert('笔记ID不存在')
+    return
+  }
+  
+  const noteTitle = note.title || note.name || '该笔记'
+  const confirmMessage = `确定要删除笔记"${noteTitle}"吗？此操作不可恢复。`
+  
+  if (!confirm(confirmMessage)) {
+    return
+  }
+  
+  try {
+    await deleteNote(noteId)
+    alert('删除成功')
+    // 重新加载笔记列表
+    await loadNotes(true) // 保持当前页码
+  } catch (error) {
+    console.error('删除笔记失败:', error)
+    alert('删除失败：' + (error.response?.data?.message || error.message || '未知错误'))
   }
 }
 
@@ -450,6 +481,7 @@ onUnmounted(() => {
   color: #999;
   pointer-events: none;
   z-index: 1;
+  object-fit: contain;
 }
 
 .search-input {
@@ -537,6 +569,32 @@ onUnmounted(() => {
 .action-btn:hover {
   background: #007FFF;
   color: white;
+}
+
+.action-btn.delete-btn {
+  border-color: #dc3545;
+  color: #dc3545;
+  margin-left: 8px;
+}
+
+.action-btn.delete-btn:hover {
+  background: #dc3545;
+  color: white;
+}
+
+.author-cell {
+  min-width: 150px;
+}
+
+.author-name {
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 4px;
+}
+
+.author-email {
+  font-size: 12px;
+  color: #666;
 }
 
 .loading-cell,

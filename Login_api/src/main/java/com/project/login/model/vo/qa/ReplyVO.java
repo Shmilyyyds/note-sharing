@@ -8,6 +8,7 @@ import java.time.LocalDateTime;
 public class ReplyVO {
     private Long replyId;
     private Long authorId;
+    private String authorName;  // 回复者用户名
     private String content;
     private LocalDateTime createdAt;
 

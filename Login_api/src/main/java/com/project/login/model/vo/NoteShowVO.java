@@ -13,7 +13,13 @@ public class NoteShowVO {
 
     private Long notebookId;
 
+    private Long spaceId;  // 笔记空间ID
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    
+    // 作者信息
+    private String authorName;  // 用户名
+    private String authorEmail;  // 邮箱
 
 }
